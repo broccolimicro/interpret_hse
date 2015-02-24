@@ -12,9 +12,8 @@
 #include <boolean/cover.h>
 
 #include <parse_boolean/variable_name.h>
-#include <parse_boolean/constant.h>
-#include <parse_boolean/assignment.h>
-#include <parse_boolean/guard.h>
+#include <parse_boolean/internal_choice.h>
+#include <parse_boolean/disjunction.h>
 
 #ifndef interpret_hse_export_h
 #define interpret_hse_export_h
