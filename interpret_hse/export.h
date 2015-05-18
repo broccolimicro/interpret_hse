@@ -27,8 +27,9 @@
 #ifndef interpret_hse_export_h
 #define interpret_hse_export_h
 
-parse_hse::sequence export_sequence(hse::iterator &branch, const hse::graph &g, boolean::variable_set &v);
-parse_hse::condition export_condition(vector<hse::iterator> &branches, const hse::graph &g, boolean::variable_set &v);
-parse_hse::parallel export_parallel(vector<hse::iterator> &branches, const hse::graph &g, boolean::variable_set &v);
+/*parse_hse::sequence export_sequence(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);
+parse_hse::parallel export_parallel(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);
+parse::syntax *export_condition(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);*/
+parse_hse::parallel export_parallel(const hse::graph &g, boolean::variable_set &v);
 
 #endif
