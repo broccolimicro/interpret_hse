@@ -55,6 +55,19 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::sequence &syntax, bo
 				result.merge(hse::sequence, import_graph(tokens, *(parse_boolean::internal_choice*)syntax.actions[i], variables, auto_define));
 		}
 
+	if (syntax.actions.size() == 0)
+	{
+		hse::iterator b = result.create(hse::place());
+		hse::iterator t = result.create(hse::transition());
+		hse::iterator e = result.create(hse::place());
+
+		result.connect(b, t);
+		result.connect(t, e);
+
+		result.source.push_back(vector<hse::token>(1, hse::token(b.index, boolean::cube())));
+		result.sink.push_back(vector<hse::token>(1, hse::token(e.index, boolean::cube())));
+	}
+
 	return result;
 }
 

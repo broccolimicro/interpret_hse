@@ -104,7 +104,7 @@ parse::syntax *export_condition(vector<hse::iterator> &i, const hse::graph &g, b
 
 parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterator, int> counts, const hse::graph &g, boolean::variable_set &v)
 {
-	 // Maintain a stack to help us manage the hierarchy. The deeper
+	// Maintain a stack to help us manage the hierarchy. The deeper
 	// the stack, the more hierarchy there is. This stack stores
 	// only sequences. Since we know at this point that every parallel
 	// or conditional block we introduce will only have one branch, we
@@ -118,14 +118,14 @@ parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterat
 	int delta = 0;
 	int value = counts[nodes[0]]-1;
 	hse::iterator last = nodes[0];
-	for (int j = 0; j < (int)nodes.size(); j++)
+	for (int j = 1; j < (int)nodes.size(); j++)
 	{
 		int c = counts[nodes[j]]-1;
 		delta = c - value;
 		value = c;
 
 		// The count increased, we need to remove hierarchy
-		while (delta > 0)
+		if (delta > 0 && j > 1)
 		{
 			if (stack.size() == 0)
 			{
@@ -143,7 +143,7 @@ parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterat
 		}
 
 		// The count decreased, we need to add hierarchy
-		while (delta < 0)
+		if (delta < 0)
 		{
 			// The last node before the count decrease was a transition, meaning
 			// we need to wrap the next couple transitions in a parallel block
@@ -194,7 +194,12 @@ parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterat
 
 		// Once we have dealt with the hierarchy issues, we still need to add assignments and disjunctions into the hse block.
 		// We'll package the disjunctions into conditionals later.
-		if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::active)
+		if (stack.size() == 0)
+		{
+			internal("", "empty stack", __FILE__, __LINE__);
+			return head;
+		}
+		else if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::active)
 		{
 			stack.back()->actions.push_back(new parse_boolean::internal_choice(export_internal_choice(g.transitions[nodes[j].index].action, v)));
 			stack.back()->actions.back()->start = nodes[j].index;
@@ -364,7 +369,7 @@ parse_hse::parallel export_parallel(const hse::graph &g, boolean::variable_set &
 			for (int i = 0; i < (int)c->branches.size(); i++)
 			{
 				// Check to see if the first item in the sequence of this branch is a disjunction
-				if (c->branches[i].second.branches.size() == 1 && c->branches[i].second.branches[0].actions.size() > 1 && c->branches[i].second.branches[0].actions[0]->is_a<parse_boolean::disjunction>())
+				if (c->branches[i].second.branches.size() == 1 && c->branches[i].second.branches[0].actions.size() > 0 && c->branches[i].second.branches[0].actions[0]->is_a<parse_boolean::disjunction>())
 				{
 					// if it is, we can move it to the guard
 					c->branches[i].first = *(parse_boolean::disjunction*)c->branches[i].second.branches[0].actions[0];
