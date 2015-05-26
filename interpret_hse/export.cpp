@@ -7,7 +7,7 @@
 
 #include "export.h"
 
-string export_token(boolean::variable_set &v, hse::token t)
+string export_token(boolean::variable_set &v, hse::local_token t)
 {
 	return "P" + to_string(t.index) + ":" + export_conjunction(t.state, v).to_string();
 }
@@ -15,8 +15,8 @@ string export_token(boolean::variable_set &v, hse::token t)
 string export_state(boolean::variable_set &v, const hse::simulator &s)
 {
 	string result = export_conjunction(s.global, v).to_string() + "{\n";
-	for (int i = 0; i < (int)s.tokens.size(); i++)
-		result += "\t" + export_token(v, s.tokens[i]) + "\n";
+	for (int i = 0; i < (int)s.local.tokens.size(); i++)
+		result += "\t" + export_token(v, s.local.tokens[i]) + "\n";
 	result += "}";
 	return result;
 }

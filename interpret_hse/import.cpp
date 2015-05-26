@@ -18,8 +18,8 @@ hse::graph import_graph(tokenizer &tokens, const parse_boolean::disjunction &syn
 	result.connect(b, t);
 	result.connect(t, e);
 
-	result.source.push_back(vector<hse::token>(1, hse::token(b.index, boolean::cube())));
-	result.sink.push_back(vector<hse::token>(1, hse::token(e.index, boolean::cube())));
+	result.source.push_back(vector<hse::local_token>(1, hse::local_token(b.index, boolean::cube())));
+	result.sink.push_back(vector<hse::local_token>(1, hse::local_token(e.index, boolean::cube())));
 	return result;
 }
 
@@ -33,8 +33,8 @@ hse::graph import_graph(tokenizer &tokens, const parse_boolean::internal_choice 
 	result.connect(b, t);
 	result.connect(t, e);
 
-	result.source.push_back(vector<hse::token>(1, hse::token(b.index, boolean::cube())));
-	result.sink.push_back(vector<hse::token>(1, hse::token(e.index, boolean::cube())));
+	result.source.push_back(vector<hse::local_token>(1, hse::local_token(b.index, boolean::cube())));
+	result.sink.push_back(vector<hse::local_token>(1, hse::local_token(e.index, boolean::cube())));
 	return result;
 }
 
@@ -64,8 +64,8 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::sequence &syntax, bo
 		result.connect(b, t);
 		result.connect(t, e);
 
-		result.source.push_back(vector<hse::token>(1, hse::token(b.index, boolean::cube())));
-		result.sink.push_back(vector<hse::token>(1, hse::token(e.index, boolean::cube())));
+		result.source.push_back(vector<hse::local_token>(1, hse::local_token(b.index, boolean::cube())));
+		result.sink.push_back(vector<hse::local_token>(1, hse::local_token(e.index, boolean::cube())));
 	}
 
 	return result;
@@ -155,9 +155,9 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::loop &syntax, boolea
 	result.connect(guard, arrow);
 
 	result.source.clear();
-	result.source.push_back(vector<hse::token>(1, hse::token(sm.index, boolean::cube())));
+	result.source.push_back(vector<hse::local_token>(1, hse::local_token(sm.index, boolean::cube())));
 	result.sink.clear();
-	result.sink.push_back(vector<hse::token>(1, hse::token(arrow.index, boolean::cube())));
+	result.sink.push_back(vector<hse::local_token>(1, hse::local_token(arrow.index, boolean::cube())));
 
 	return result;
 }

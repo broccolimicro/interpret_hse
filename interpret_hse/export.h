@@ -31,7 +31,7 @@
 /*parse_hse::sequence export_sequence(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);
 parse_hse::parallel export_parallel(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);
 parse::syntax *export_condition(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);*/
-string export_token(boolean::variable_set &v, hse::token t);
+string export_token(boolean::variable_set &v, hse::local_token t);
 string export_state(boolean::variable_set &v, const hse::simulator &s);
 string export_instability(const hse::graph &g, boolean::variable_set &v, hse::instability i);
 string export_interference(const hse::graph &g, boolean::variable_set &v, hse::interference i);
