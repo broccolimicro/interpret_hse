@@ -18,8 +18,8 @@ hse::graph import_graph(tokenizer &tokens, const parse_boolean::disjunction &syn
 	result.connect(b, t);
 	result.connect(t, e);
 
-	result.source.push_back(vector<hse::local_token>(1, hse::local_token(b.index, boolean::cube())));
-	result.sink.push_back(vector<hse::local_token>(1, hse::local_token(e.index, boolean::cube())));
+	result.source.push_back(vector<hse::reset_token>(1, hse::reset_token(b.index, boolean::cube(), false)));
+	result.sink.push_back(vector<hse::reset_token>(1, hse::reset_token(e.index, boolean::cube(), false)));
 	return result;
 }
 
@@ -33,8 +33,8 @@ hse::graph import_graph(tokenizer &tokens, const parse_boolean::internal_choice 
 	result.connect(b, t);
 	result.connect(t, e);
 
-	result.source.push_back(vector<hse::local_token>(1, hse::local_token(b.index, boolean::cube())));
-	result.sink.push_back(vector<hse::local_token>(1, hse::local_token(e.index, boolean::cube())));
+	result.source.push_back(vector<hse::reset_token>(1, hse::reset_token(b.index, boolean::cube(), false)));
+	result.sink.push_back(vector<hse::reset_token>(1, hse::reset_token(e.index, boolean::cube(), false)));
 	return result;
 }
 
@@ -46,13 +46,13 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::sequence &syntax, bo
 		if (syntax.actions[i] != NULL && syntax.actions[i]->valid)
 		{
 			if (syntax.actions[i]->is_a<parse_hse::parallel>())
-				result.merge(hse::sequence, import_graph(tokens, *(parse_hse::parallel*)syntax.actions[i], variables, auto_define));
+				result.merge(hse::sequence, import_graph(tokens, *(parse_hse::parallel*)syntax.actions[i], variables, auto_define), false);
 			else if (syntax.actions[i]->is_a<parse_hse::condition>())
-				result.merge(hse::sequence, import_graph(tokens, *(parse_hse::condition*)syntax.actions[i], variables, auto_define));
+				result.merge(hse::sequence, import_graph(tokens, *(parse_hse::condition*)syntax.actions[i], variables, auto_define), false);
 			else if (syntax.actions[i]->is_a<parse_hse::loop>())
-				result.merge(hse::sequence, import_graph(tokens, *(parse_hse::loop*)syntax.actions[i], variables, auto_define));
+				result.merge(hse::sequence, import_graph(tokens, *(parse_hse::loop*)syntax.actions[i], variables, auto_define), false);
 			else if (syntax.actions[i]->is_a<parse_boolean::internal_choice>())
-				result.merge(hse::sequence, import_graph(tokens, *(parse_boolean::internal_choice*)syntax.actions[i], variables, auto_define));
+				result.merge(hse::sequence, import_graph(tokens, *(parse_boolean::internal_choice*)syntax.actions[i], variables, auto_define), false);
 		}
 
 	if (syntax.actions.size() == 0)
@@ -64,8 +64,8 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::sequence &syntax, bo
 		result.connect(b, t);
 		result.connect(t, e);
 
-		result.source.push_back(vector<hse::local_token>(1, hse::local_token(b.index, boolean::cube())));
-		result.sink.push_back(vector<hse::local_token>(1, hse::local_token(e.index, boolean::cube())));
+		result.source.push_back(vector<hse::reset_token>(1, hse::reset_token(b.index, boolean::cube(), false)));
+		result.sink.push_back(vector<hse::reset_token>(1, hse::reset_token(e.index, boolean::cube(), false)));
 	}
 
 	return result;
@@ -77,7 +77,7 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::parallel &syntax, bo
 
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 		if (syntax.branches[i].valid)
-			result.merge(hse::parallel, import_graph(tokens, syntax.branches[i], variables, auto_define));
+			result.merge(hse::parallel, import_graph(tokens, syntax.branches[i], variables, auto_define), false);
 
 	result.wrap();
 
@@ -92,10 +92,10 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::condition &syntax, b
 	{
 		hse::graph branch;
 		if (syntax.branches[i].first.valid)
-			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].first, variables, auto_define));
+			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].first, variables, auto_define), false);
 		if (syntax.branches[i].second.valid)
-			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].second, variables, auto_define));
-		result.merge(hse::choice, branch);
+			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].second, variables, auto_define), false);
+		result.merge(hse::choice, branch, false);
 	}
 
 	result.wrap();
@@ -111,10 +111,10 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::loop &syntax, boolea
 	{
 		hse::graph branch;
 		if (syntax.branches[i].first.valid)
-			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].first, variables, auto_define));
+			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].first, variables, auto_define), false);
 		if (syntax.branches[i].second.valid)
-			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].second, variables, auto_define));
-		result.merge(hse::choice, branch);
+			branch.merge(hse::sequence, import_graph(tokens, syntax.branches[i].second, variables, auto_define), false);
+		result.merge(hse::choice, branch, false);
 	}
 
 	boolean::cover repeat = 0;
@@ -155,9 +155,9 @@ hse::graph import_graph(tokenizer &tokens, const parse_hse::loop &syntax, boolea
 	result.connect(guard, arrow);
 
 	result.source.clear();
-	result.source.push_back(vector<hse::local_token>(1, hse::local_token(sm.index, boolean::cube())));
+	result.source.push_back(vector<hse::reset_token>(1, hse::reset_token(sm.index, boolean::cube(), false)));
 	result.sink.clear();
-	result.sink.push_back(vector<hse::local_token>(1, hse::local_token(arrow.index, boolean::cube())));
+	result.sink.push_back(vector<hse::reset_token>(1, hse::reset_token(arrow.index, boolean::cube(), false)));
 
 	return result;
 }
