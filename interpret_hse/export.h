@@ -32,6 +32,7 @@
 parse_hse::parallel export_parallel(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);
 parse::syntax *export_condition(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);*/
 
-parse_hse::parallel export_parallel(const hse::graph &g, boolean::variable_set &v);
+parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable_set &v);
+string export_node(hse::iterator i, const hse::graph &g, const boolean::variable_set &v);
 
 #endif

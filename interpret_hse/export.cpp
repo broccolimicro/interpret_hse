@@ -102,7 +102,7 @@ parse::syntax *export_condition(vector<hse::iterator> &i, const hse::graph &g, b
 }*/
 
 
-parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterator, int> counts, const hse::graph &g, boolean::variable_set &v)
+parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterator, int> counts, const hse::graph &g, const boolean::variable_set &v)
 {
 	// Maintain a stack to help us manage the hierarchy. The deeper
 	// the stack, the more hierarchy there is. This stack stores
@@ -277,7 +277,7 @@ bool merge_sequences(parse_hse::sequence &s0, parse_hse::sequence &s1, vector<pa
 // The result is that all non-deterministic conditionals are converted to deterministic ones.
 // TODO This function does not always throw an error when an HSE is not properly nested.
 // It will just return a bunch of independent processes that don't correctly implement the HSE.
-parse_hse::parallel export_parallel(const hse::graph &g, boolean::variable_set &v)
+parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable_set &v)
 {
 	// First step is to identify all of the cycles in the graph.
 	vector<vector<hse::iterator> > cycles = g.cycles();
@@ -432,4 +432,88 @@ parse_hse::parallel export_parallel(const hse::graph &g, boolean::variable_set &
 	//printf("%s\n", wrapper.to_string().c_str());
 
 	return wrapper;
+}
+
+string export_node(hse::iterator i, const hse::graph &g, const boolean::variable_set &v)
+{
+	vector<hse::iterator> n = g.next(i);
+	vector<hse::iterator> p = g.prev(i);
+	string result = "";
+
+	if (i.type == hse::transition::type)
+	{
+		vector<hse::iterator> pp;
+		vector<hse::iterator> np;
+
+		//bool proper_nest = true;
+		for (int j = 0; j < (int)p.size(); j++)
+		{
+			vector<hse::iterator> tmp = g.prev(p[j]);
+			pp.insert(pp.begin(), tmp.begin(), tmp.end());
+			tmp = g.next(p[j]);
+			np.insert(np.begin(), tmp.begin(), tmp.end());
+			//if (p.size() > 1 && tmp.size() > 1)
+			//	proper_nest = false;
+		}
+
+		sort(pp.begin(), pp.end());
+		pp.resize(unique(pp.begin(), pp.end()) - pp.begin());
+		sort(np.begin(), np.end());
+		np.resize(unique(np.begin(), np.end()) - np.begin());
+
+		n = np;
+		p = pp;
+	}
+
+	if (p.size() > 1)
+	{
+		result = "[...";
+		for (int j = 0; j < (int)p.size(); j++)
+		{
+			if (j != 0)
+				result += "[]...";
+
+			if (g.transitions[p[j].index].behavior == hse::transition::active)
+				result += export_assignment(g.transitions[p[j].index].action, v).to_string();
+			else
+				result += "[" + export_guard_xfactor(g.transitions[p[j].index].action, v).to_string() + "]";
+		}
+		result += "] ; ";
+	}
+	else if (p.size() == 1 && g.transitions[p[0].index].behavior == hse::transition::active)
+		result =  export_assignment(g.transitions[p[0].index].action, v).to_string() + " ; ";
+	else if (p.size() == 1 && g.next(g.prev(p[0])).size() > 1)
+		result = "[" + export_guard_xfactor(g.transitions[p[0].index].action, v).to_string() + " -> ";
+	else if (p.size() == 1)
+		result = "[" + export_guard_xfactor(g.transitions[p[0].index].action, v).to_string() + "] ; ";
+
+	if (n.size() > 1)
+	{
+		result += "[";
+		for (int j = 0; j < (int)n.size(); j++)
+		{
+			if (j != 0)
+				result += "[]";
+
+			if (n[j] == i)
+				result += " ";
+
+			if (g.transitions[n[j].index].behavior == hse::transition::active)
+				result += "1->" + export_assignment(g.transitions[n[j].index].action, v).to_string() + "...";
+			else
+				result += export_guard_xfactor(g.transitions[n[j].index].action, v).to_string() + "->...";
+
+			if (n[j] == i)
+				result += " ";
+		}
+		result += "]";
+	}
+	else if (n.size() == 1 && g.transitions[n[0].index].behavior == hse::transition::active)
+		result += export_assignment(g.transitions[n[0].index].action, v).to_string();
+	else if (n.size() == 1 && g.prev(g.next(n[0])).size() > 1)
+		result += export_guard_xfactor(g.transitions[n[0].index].action, v).to_string() + "]";
+	else if (n.size() == 1)
+		result += "[" + export_guard_xfactor(g.transitions[n[0].index].action, v).to_string() + "]";
+
+	return result;
 }
