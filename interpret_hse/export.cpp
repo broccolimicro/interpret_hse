@@ -178,7 +178,7 @@ parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterat
 				// later when we go to merge them.
 				tmp->start = last.index;
 
-				tmp->branches.push_back(pair<parse_boolean::disjunction, parse_hse::parallel>());
+				tmp->branches.push_back(pair<parse_boolean::guard, parse_hse::parallel>());
 				tmp->branches.back().second.valid = true;
 				parse_hse::sequence new_head;
 				new_head.valid = true;
@@ -201,13 +201,13 @@ parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterat
 		}
 		else if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::active)
 		{
-			stack.back()->actions.push_back(new parse_boolean::internal_choice(export_internal_choice(g.transitions[nodes[j].index].action, v)));
+			stack.back()->actions.push_back(new parse_boolean::assignment(export_assignment(g.transitions[nodes[j].index].action, v)));
 			stack.back()->actions.back()->start = nodes[j].index;
 			stack.back()->actions.back()->end = nodes[j].index;
 		}
 		else if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::passive)
 		{
-			stack.back()->actions.push_back(new parse_boolean::disjunction(export_disjunction(g.transitions[nodes[j].index].action, v)));
+			stack.back()->actions.push_back(new parse_boolean::guard(export_guard_xfactor(g.transitions[nodes[j].index].action, v)));
 			stack.back()->actions.back()->start = nodes[j].index;
 			stack.back()->actions.back()->end = nodes[j].index;
 		}
@@ -369,16 +369,16 @@ parse_hse::parallel export_parallel(const hse::graph &g, boolean::variable_set &
 			for (int i = 0; i < (int)c->branches.size(); i++)
 			{
 				// Check to see if the first item in the sequence of this branch is a disjunction
-				if (c->branches[i].second.branches.size() == 1 && c->branches[i].second.branches[0].actions.size() > 0 && c->branches[i].second.branches[0].actions[0]->is_a<parse_boolean::disjunction>())
+				if (c->branches[i].second.branches.size() == 1 && c->branches[i].second.branches[0].actions.size() > 0 && c->branches[i].second.branches[0].actions[0]->is_a<parse_boolean::guard>())
 				{
 					// if it is, we can move it to the guard
-					c->branches[i].first = *(parse_boolean::disjunction*)c->branches[i].second.branches[0].actions[0];
+					c->branches[i].first = *(parse_boolean::guard*)c->branches[i].second.branches[0].actions[0];
 					delete c->branches[i].second.branches[0].actions[0];
 					c->branches[i].second.branches[0].actions.erase(c->branches[i].second.branches[0].actions.begin());
 				}
 				else
 					// if it isn't then we need to write our own guard.
-					c->branches[i].first = export_disjunction(boolean::cover(boolean::cube()), v);
+					c->branches[i].first = export_guard(boolean::cube(), v);
 
 				// recurse
 				m.push_back(&c->branches[i].second);
@@ -398,13 +398,13 @@ parse_hse::parallel export_parallel(const hse::graph &g, boolean::variable_set &
 			parse_hse::sequence *s = (parse_hse::sequence*)syn;
 			for (int i = 0; i < (int)s->actions.size(); i++)
 			{
-				if (s->actions[i]->is_a<parse_boolean::disjunction>())
+				if (s->actions[i]->is_a<parse_boolean::guard>())
 				{
 					parse_hse::condition *c = new parse_hse::condition();
 					c->valid = true;
 					c->deterministic = true;
 					c->branches.resize(1);
-					c->branches.back().first = *((parse_boolean::disjunction*)s->actions[i]);
+					c->branches.back().first = *((parse_boolean::guard*)s->actions[i]);
 					c->start = c->branches.back().first.start;
 					delete s->actions[i];
 					s->actions[i] = c;

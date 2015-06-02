@@ -12,8 +12,8 @@
 #include <boolean/cover.h>
 
 #include <parse_boolean/variable_name.h>
-#include <parse_boolean/internal_choice.h>
-#include <parse_boolean/disjunction.h>
+#include <parse_boolean/guard.h>
+#include <parse_boolean/assignment.h>
 
 #include <parse_hse/sequence.h>
 #include <parse_hse/parallel.h>

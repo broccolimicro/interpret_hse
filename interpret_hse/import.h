@@ -15,17 +15,17 @@
 #include <parse_hse/condition.h>
 #include <parse_hse/loop.h>
 
-#include <parse_boolean/internal_choice.h>
-#include <parse_boolean/disjunction.h>
+#include <parse_boolean/assignment.h>
+#include <parse_boolean/guard.h>
 
 #ifndef interpret_hse_import_h
 #define interpret_hse_import_h
 
-hse::graph import_graph(tokenizer &tokens, const parse_boolean::disjunction &syntax, boolean::variable_set &variables, bool auto_define);
-hse::graph import_graph(tokenizer &tokens, const parse_boolean::internal_choice &syntax, boolean::variable_set &variables, bool auto_define);
-hse::graph import_graph(tokenizer &tokens, const parse_hse::sequence &syntax, boolean::variable_set &variables, bool auto_define);
-hse::graph import_graph(tokenizer &tokens, const parse_hse::parallel &syntax, boolean::variable_set &variables, bool auto_define);
-hse::graph import_graph(tokenizer &tokens, const parse_hse::condition &syntax, boolean::variable_set &variables, bool auto_define);
-hse::graph import_graph(tokenizer &tokens, const parse_hse::loop &syntax, boolean::variable_set &variables, bool auto_define);
+hse::graph import_graph(const parse_boolean::guard &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define);
+hse::graph import_graph(const parse_boolean::assignment &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define);
+hse::graph import_graph(const parse_hse::sequence &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define);
+hse::graph import_graph(const parse_hse::parallel &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define);
+hse::graph import_graph(const parse_hse::condition &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define);
+hse::graph import_graph(const parse_hse::loop &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define);
 
 #endif
