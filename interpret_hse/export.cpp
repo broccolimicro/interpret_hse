@@ -201,13 +201,13 @@ parse_hse::sequence export_sequence(vector<hse::iterator> nodes, map<hse::iterat
 		}
 		else if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::active)
 		{
-			stack.back()->actions.push_back(new parse_boolean::assignment(export_assignment(g.transitions[nodes[j].index].action, v)));
+			stack.back()->actions.push_back(new parse_boolean::assignment(export_assignment(g.transitions[nodes[j].index].local_action, v)));
 			stack.back()->actions.back()->start = nodes[j].index;
 			stack.back()->actions.back()->end = nodes[j].index;
 		}
 		else if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::passive)
 		{
-			stack.back()->actions.push_back(new parse_boolean::guard(export_guard_xfactor(g.transitions[nodes[j].index].action, v)));
+			stack.back()->actions.push_back(new parse_boolean::guard(export_guard_xfactor(g.transitions[nodes[j].index].local_action, v)));
 			stack.back()->actions.back()->start = nodes[j].index;
 			stack.back()->actions.back()->end = nodes[j].index;
 		}
@@ -474,18 +474,18 @@ string export_node(hse::iterator i, const hse::graph &g, const boolean::variable
 				result += "[]...";
 
 			if (g.transitions[p[j].index].behavior == hse::transition::active)
-				result += export_assignment(g.transitions[p[j].index].action, v).to_string();
+				result += export_assignment(g.transitions[p[j].index].local_action, v).to_string();
 			else
-				result += "[" + export_guard_xfactor(g.transitions[p[j].index].action, v).to_string() + "]";
+				result += "[" + export_guard_xfactor(g.transitions[p[j].index].local_action, v).to_string() + "]";
 		}
 		result += "] ; ";
 	}
 	else if (p.size() == 1 && g.transitions[p[0].index].behavior == hse::transition::active)
-		result =  export_assignment(g.transitions[p[0].index].action, v).to_string() + " ; ";
+		result =  export_assignment(g.transitions[p[0].index].local_action, v).to_string() + " ; ";
 	else if (p.size() == 1 && g.next(g.prev(p[0])).size() > 1)
-		result = "[" + export_guard_xfactor(g.transitions[p[0].index].action, v).to_string() + " -> ";
+		result = "[" + export_guard_xfactor(g.transitions[p[0].index].local_action, v).to_string() + " -> ";
 	else if (p.size() == 1)
-		result = "[" + export_guard_xfactor(g.transitions[p[0].index].action, v).to_string() + "] ; ";
+		result = "[" + export_guard_xfactor(g.transitions[p[0].index].local_action, v).to_string() + "] ; ";
 
 	if (n.size() > 1)
 	{
@@ -499,9 +499,9 @@ string export_node(hse::iterator i, const hse::graph &g, const boolean::variable
 				result += " ";
 
 			if (g.transitions[n[j].index].behavior == hse::transition::active)
-				result += "1->" + export_assignment(g.transitions[n[j].index].action, v).to_string() + "...";
+				result += "1->" + export_assignment(g.transitions[n[j].index].local_action, v).to_string() + "...";
 			else
-				result += export_guard_xfactor(g.transitions[n[j].index].action, v).to_string() + "->...";
+				result += export_guard_xfactor(g.transitions[n[j].index].local_action, v).to_string() + "->...";
 
 			if (n[j] == i)
 				result += " ";
@@ -509,11 +509,11 @@ string export_node(hse::iterator i, const hse::graph &g, const boolean::variable
 		result += "]";
 	}
 	else if (n.size() == 1 && g.transitions[n[0].index].behavior == hse::transition::active)
-		result += export_assignment(g.transitions[n[0].index].action, v).to_string();
+		result += export_assignment(g.transitions[n[0].index].local_action, v).to_string();
 	else if (n.size() == 1 && g.prev(g.next(n[0])).size() > 1)
-		result += export_guard_xfactor(g.transitions[n[0].index].action, v).to_string() + "]";
+		result += export_guard_xfactor(g.transitions[n[0].index].local_action, v).to_string() + "]";
 	else if (n.size() == 1)
-		result += "[" + export_guard_xfactor(g.transitions[n[0].index].action, v).to_string() + "]";
+		result += "[" + export_guard_xfactor(g.transitions[n[0].index].local_action, v).to_string() + "]";
 
 	return result;
 }
