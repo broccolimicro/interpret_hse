@@ -8,11 +8,11 @@
 #include "import.h"
 #include <interpret_boolean/import.h>
 
-hse::graph import_graph(const parse_boolean::guard &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define)
+hse::graph import_graph(const parse_boolean::guard &syntax, boolean::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
-	hse::iterator t = result.create(hse::transition(hse::transition::passive, import_cover(syntax, variables, tokens, auto_define)));
+	hse::iterator t = result.create(hse::transition(hse::transition::passive, import_cover(syntax, variables, default_id, tokens, auto_define)));
 	hse::iterator e = result.create(hse::place());
 
 	result.connect(b, t);
@@ -23,11 +23,11 @@ hse::graph import_graph(const parse_boolean::guard &syntax, boolean::variable_se
 	return result;
 }
 
-hse::graph import_graph(const parse_boolean::assignment &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define)
+hse::graph import_graph(const parse_boolean::assignment &syntax, boolean::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
-	hse::iterator t = result.create(hse::transition(hse::transition::active, import_cover(syntax, variables, tokens, auto_define)));
+	hse::iterator t = result.create(hse::transition(hse::transition::active, import_cover(syntax, variables, default_id, tokens, auto_define)));
 	hse::iterator e = result.create(hse::place());
 
 	result.connect(b, t);
@@ -38,21 +38,24 @@ hse::graph import_graph(const parse_boolean::assignment &syntax, boolean::variab
 	return result;
 }
 
-hse::graph import_graph(const parse_hse::sequence &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define)
+hse::graph import_graph(const parse_hse::sequence &syntax, boolean::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
+	if (syntax.region != "")
+		default_id = atoi(syntax.region.c_str());
+
 	hse::graph result;
 
 	for (int i = 0; i < (int)syntax.actions.size(); i++)
 		if (syntax.actions[i] != NULL && syntax.actions[i]->valid)
 		{
 			if (syntax.actions[i]->is_a<parse_hse::parallel>())
-				result.merge(hse::sequence, import_graph(*(parse_hse::parallel*)syntax.actions[i], variables, tokens, auto_define).wrap(), false);
+				result.merge(hse::sequence, import_graph(*(parse_hse::parallel*)syntax.actions[i], variables, default_id, tokens, auto_define).wrap(), false);
 			else if (syntax.actions[i]->is_a<parse_hse::condition>())
-				result.merge(hse::sequence, import_graph(*(parse_hse::condition*)syntax.actions[i], variables, tokens, auto_define).wrap(), false);
+				result.merge(hse::sequence, import_graph(*(parse_hse::condition*)syntax.actions[i], variables, default_id, tokens, auto_define).wrap(), false);
 			else if (syntax.actions[i]->is_a<parse_hse::loop>())
-				result.merge(hse::sequence, import_graph(*(parse_hse::loop*)syntax.actions[i], variables, tokens, auto_define), false);
+				result.merge(hse::sequence, import_graph(*(parse_hse::loop*)syntax.actions[i], variables, default_id, tokens, auto_define), false);
 			else if (syntax.actions[i]->is_a<parse_boolean::assignment>())
-				result.merge(hse::sequence, import_graph(*(parse_boolean::assignment*)syntax.actions[i], variables, tokens, auto_define), false);
+				result.merge(hse::sequence, import_graph(*(parse_boolean::assignment*)syntax.actions[i], variables, default_id, tokens, auto_define), false);
 		}
 
 	if (syntax.actions.size() == 0)
@@ -71,45 +74,54 @@ hse::graph import_graph(const parse_hse::sequence &syntax, boolean::variable_set
 	return result;
 }
 
-hse::graph import_graph(const parse_hse::parallel &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define)
+hse::graph import_graph(const parse_hse::parallel &syntax, boolean::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
+	if (syntax.region != "")
+		default_id = atoi(syntax.region.c_str());
+
 	hse::graph result;
 
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 		if (syntax.branches[i].valid)
-			result.merge(hse::parallel, import_graph(syntax.branches[i], variables, tokens, auto_define), false);
+			result.merge(hse::parallel, import_graph(syntax.branches[i], variables, default_id, tokens, auto_define), false);
 
 	return result;
 }
 
-hse::graph import_graph(const parse_hse::condition &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define)
+hse::graph import_graph(const parse_hse::condition &syntax, boolean::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
+	if (syntax.region != "")
+		default_id = atoi(syntax.region.c_str());
+
 	hse::graph result;
 
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		hse::graph branch;
 		if (syntax.branches[i].first.valid)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, tokens, auto_define), false);
+			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, default_id, tokens, auto_define), false);
 		if (syntax.branches[i].second.valid)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, tokens, auto_define), false);
+			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, default_id, tokens, auto_define), false);
 		result.merge(hse::choice, branch, false);
 	}
 
 	return result;
 }
 
-hse::graph import_graph(const parse_hse::loop &syntax, boolean::variable_set &variables, tokenizer *tokens, bool auto_define)
+hse::graph import_graph(const parse_hse::loop &syntax, boolean::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
+	if (syntax.region != "")
+		default_id = atoi(syntax.region.c_str());
+
 	hse::graph result;
 
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		hse::graph branch;
 		if (syntax.branches[i].first.valid)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, tokens, auto_define), false);
+			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, default_id, tokens, auto_define), false);
 		if (syntax.branches[i].second.valid)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, tokens, auto_define), false);
+			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, default_id, tokens, auto_define), false);
 		result.merge(hse::choice, branch, false);
 	}
 
@@ -117,7 +129,7 @@ hse::graph import_graph(const parse_hse::loop &syntax, boolean::variable_set &va
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		if (syntax.branches[i].first.valid)
-			repeat |= import_cover(syntax.branches[i].first, variables, tokens, auto_define);
+			repeat |= import_cover(syntax.branches[i].first, variables, default_id, tokens, auto_define);
 		else
 			repeat = 1;
 	}
