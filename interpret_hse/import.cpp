@@ -56,6 +56,11 @@ hse::graph import_graph(const parse_hse::sequence &syntax, boolean::variable_set
 				result.merge(hse::sequence, import_graph(*(parse_hse::loop*)syntax.actions[i], variables, default_id, tokens, auto_define), false);
 			else if (syntax.actions[i]->is_a<parse_boolean::assignment>())
 				result.merge(hse::sequence, import_graph(*(parse_boolean::assignment*)syntax.actions[i], variables, default_id, tokens, auto_define), false);
+
+			if (syntax.reset == 0 && i == 0)
+				result.reset = result.source;
+			else if (syntax.reset == i+1)
+				result.reset = result.sink;
 		}
 
 	if (syntax.actions.size() == 0)
@@ -69,6 +74,9 @@ hse::graph import_graph(const parse_hse::sequence &syntax, boolean::variable_set
 
 		result.source.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(b.index, false)), vector<hse::term_index>(), boolean::cover(1)));
 		result.sink.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(e.index, false)), vector<hse::term_index>(), boolean::cover(1)));
+
+		if (syntax.reset >= 0)
+			result.reset = result.source;
 	}
 
 	return result;
@@ -162,6 +170,12 @@ hse::graph import_graph(const parse_hse::loop &syntax, boolean::variable_set &va
 	result.source.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(sm.index, false)), vector<hse::term_index>(), boolean::cover(1)));
 	result.sink.clear();
 	result.sink.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(arrow.index, false)), vector<hse::term_index>(), boolean::cover(1)));
+
+	if (result.reset.size() > 0)
+	{
+		result.source = result.reset;
+		result.reset.clear();
+	}
 
 	return result;
 }
