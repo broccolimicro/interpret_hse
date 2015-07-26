@@ -7,20 +7,19 @@
 
 #include <common/standard.h>
 
-#include <boolean/variable.h>
-#include <boolean/cube.h>
-#include <boolean/cover.h>
+#include <parse_expression/expression.h>
+#include <parse_expression/assignment.h>
 
-#include <parse_boolean/variable_name.h>
-#include <parse_boolean/guard.h>
-#include <parse_boolean/assignment.h>
+#include <parse_dot/node_id.h>
+#include <parse_dot/attribute_list.h>
+#include <parse_dot/statement.h>
+#include <parse_dot/graph.h>
 
-#include <parse_hse/sequence.h>
-#include <parse_hse/parallel.h>
-#include <parse_hse/condition.h>
-#include <parse_hse/loop.h>
+#include <parse_chp/composition.h>
+#include <parse_chp/control.h>
 
 #include <hse/graph.h>
+#include <hse/state.h>
 #include <hse/simulator.h>
 
 #include <interpret_boolean/export.h>
@@ -28,11 +27,30 @@
 #ifndef interpret_hse_export_h
 #define interpret_hse_export_h
 
-/*parse_hse::sequence export_sequence(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);
-parse_hse::parallel export_parallel(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);
-parse::syntax *export_condition(vector<hse::iterator> &i, const hse::graph &g, boolean::variable_set &v);*/
+// DOT
 
-parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable_set &v);
-string export_node(hse::iterator i, const hse::graph &g, const boolean::variable_set &v);
+parse_dot::node_id export_node_id(const petri::iterator &i);
+parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, ucs::variable_set &variables, bool labels = false);
+parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, ucs::variable_set &v, bool labels = false);
+parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph &g, ucs::variable_set &v, bool labels);
+parse_dot::statement export_statement(const hse::half_synchronization &s);
+parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool labels = false);
+
+// HSE
+
+parse_chp::composition export_composition(boolean::cube c, ucs::variable_set &variables);
+parse_chp::control export_control(boolean::cover c, ucs::variable_set &variables);
+parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v);
+parse_chp::composition export_parallel(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v);
+parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v);
+
+/*parse_chp::composition export_sequence(vector<hse::iterator> &i, const hse::graph &g, ucs::variable_set &v);
+parse_chp::composition export_parallel(vector<hse::iterator> &i, const hse::graph &g, ucs::variable_set &v);
+parse_chp::control export_control(vector<hse::iterator> &i, const hse::graph &g, ucs::variable_set &v);*/
+
+/*parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable_set &v);*/
+string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_set &v);
+
+
 
 #endif
