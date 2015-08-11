@@ -713,8 +713,6 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 	}
 	else if (n.size() == 1 && g.transitions[n[0].index].behavior == hse::transition::active)
 		result += export_composition(g.transitions[n[0].index].local_action, v).to_string();
-	else if (n.size() == 1 && g.prev(g.next(n[0])).size() > 1)
-		result += export_expression_xfactor(g.transitions[n[0].index].local_action, v).to_string() + "]";
 	else if (n.size() == 1)
 		result += "[" + export_expression_xfactor(g.transitions[n[0].index].local_action, v).to_string() + "]";
 
