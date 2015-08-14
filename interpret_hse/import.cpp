@@ -198,8 +198,8 @@ hse::graph import_graph(const parse_expression::expression &syntax, ucs::variabl
 	result.connect(b, t);
 	result.connect(t, e);
 
-	result.source.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(b.index, false)), vector<hse::term_index>(), boolean::cover(1)));
-	result.sink.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(e.index, false)), vector<hse::term_index>(), boolean::cover(1)));
+	result.source.push_back(hse::state(vector<petri::token>(1, petri::token(b.index)), boolean::cube(1)));
+	result.sink.push_back(hse::state(vector<petri::token>(1, petri::token(e.index)), boolean::cube(1)));
 	return result;
 }
 
@@ -213,8 +213,8 @@ hse::graph import_graph(const parse_expression::assignment &syntax, ucs::variabl
 	result.connect(b, t);
 	result.connect(t, e);
 
-	result.source.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(b.index, false)), vector<hse::term_index>(), boolean::cover(1)));
-	result.sink.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(e.index, false)), vector<hse::term_index>(), boolean::cover(1)));
+	result.source.push_back(hse::state(vector<petri::token>(1, petri::token(b.index)), boolean::cube(1)));
+	result.sink.push_back(hse::state(vector<petri::token>(1, petri::token(e.index)), boolean::cube(1)));
 	return result;
 }
 
@@ -234,11 +234,11 @@ hse::graph import_graph(const parse_chp::composition &syntax, ucs::variable_set 
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		if (syntax.branches[i].sub.valid)
-			result.merge(composition, import_graph(syntax.branches[i].sub, variables, default_id, tokens, auto_define), false);
+			result.merge(composition, import_graph(syntax.branches[i].sub, variables, default_id, tokens, auto_define));
 		else if (syntax.branches[i].ctrl.valid)
-			result.merge(composition, import_graph(syntax.branches[i].ctrl, variables, default_id, tokens, auto_define), false);
+			result.merge(composition, import_graph(syntax.branches[i].ctrl, variables, default_id, tokens, auto_define));
 		else if (syntax.branches[i].assign.valid)
-			result.merge(composition, import_graph(syntax.branches[i].assign, variables, default_id, tokens, auto_define), false);
+			result.merge(composition, import_graph(syntax.branches[i].assign, variables, default_id, tokens, auto_define));
 
 		if (syntax.reset == 0 && i == 0)
 			result.reset = result.source;
@@ -260,10 +260,10 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 	{
 		hse::graph branch;
 		if (syntax.branches[i].first.valid && import_cover(syntax.branches[i].first, variables, default_id, tokens, auto_define) != 1)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, default_id, tokens, auto_define), false);
+			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, default_id, tokens, auto_define));
 		if (syntax.branches[i].second.valid)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, default_id, tokens, auto_define), false);
-		result.merge(hse::choice, branch, false);
+			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, default_id, tokens, auto_define));
+		result.merge(hse::choice, branch);
 	}
 
 	if (syntax.repeat && syntax.branches.size() > 0)
@@ -339,7 +339,7 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 			hse::iterator arrow = result.create(hse::place());
 			result.connect(guard, arrow);
 
-			result.sink.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(arrow.index, false)), vector<hse::term_index>(), boolean::cover(1)));
+			result.sink.push_back(hse::state(vector<petri::token>(1, petri::token(arrow.index)), boolean::cube(1)));
 		}
 
 		if (result.reset.size() > 0)
@@ -348,7 +348,7 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 			result.reset.clear();
 		}
 		else
-			result.source.push_back(hse::state(vector<hse::reset_token>(1, hse::reset_token(sm.index, false)), vector<hse::term_index>(), boolean::cover(1)));
+			result.source.push_back(hse::state(vector<petri::token>(1, petri::token(sm.index)), boolean::cube(1)));
 	}
 
 	return result;

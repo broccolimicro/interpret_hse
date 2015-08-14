@@ -45,7 +45,7 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 				if (i.index == g.source[j].tokens[k].index)
 					sub_result.as.push_back(marked);
 
-		label.second = export_expression_hfactor(g.places[i.index].effective, variables).to_string();
+		label.second = line_wrap(export_expression_hfactor(g.places[i.index].effective, variables).to_string(), 80);
 	}
 	else
 	{
@@ -98,30 +98,6 @@ parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph 
 	return result;
 }
 
-parse_dot::statement export_statement(const hse::half_synchronization &s)
-{
-	parse_dot::statement result;
-	result.valid = true;
-	result.statement_type = "edge";
-	result.nodes.push_back(new parse_dot::node_id(export_node_id(hse::iterator(hse::transition::type, s.active.index))));
-	result.nodes.push_back(new parse_dot::node_id(export_node_id(hse::iterator(hse::transition::type, s.passive.index))));
-
-	parse_dot::assignment_list attr;
-	attr.valid = true;
-	parse_dot::assignment dotted;
-	dotted.valid = true;
-	dotted.first = "style";
-	dotted.second = "dashed";
-	parse_dot::assignment constraint;
-	constraint.valid = true;
-	constraint.first = "constraint";
-	constraint.second = "false";
-	attr.as.push_back(dotted);
-	attr.as.push_back(constraint);
-	result.attributes.attributes.push_back(attr);
-	return result;
-}
-
 parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool labels)
 {
 	parse_dot::graph result;
@@ -138,9 +114,6 @@ parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool la
 	for (int i = 0; i < 2; i++)
 		for (int j = 0; j < (int)g.arcs[i].size(); j++)
 			result.statements.push_back(export_statement(pair<int, int>(i, j), g, v, labels));
-
-	for (int i = 0; i < (int)g.synchronizations.size(); i++)
-		result.statements.push_back(export_statement(g.synchronizations[i]));
 
 	return result;
 }
