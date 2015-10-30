@@ -7,6 +7,245 @@
 
 #include "export.h"
 
+pair<vector<parse_astg::node>, vector<parse_astg::node> > export_astg(parse_astg::graph &g, parse_expression::composition c, ucs::variable_set &variables, string tlabel, string plabel, int &pid, int &tid)
+{
+	if (c.compositions.size() + c.guards.size() + c.literals.size() > 1)
+	{
+		pair<vector<parse_astg::node>, vector<parse_astg::node> > result;
+		if (c.precedence[c.level] == ":")
+		{
+			// Left side
+			result.first.push_back(parse_astg::node("d" + tlabel, to_string(tid)));
+			g.dummy.push_back(result.first.back().to_string());
+
+			tid++;
+			parse_astg::node left("p" + plabel, to_string(pid));
+			pid++;
+			g.arcs.push_back(parse_astg::arc(result.first.back(), left));
+
+			// Right Side
+			result.second.push_back(parse_astg::node("d" + tlabel, to_string(tid)));
+			g.dummy.push_back(result.second.back().to_string());
+
+			tid++;
+			parse_astg::node right("p" + plabel, to_string(pid));
+			pid++;
+			g.arcs.push_back(parse_astg::arc(right, result.second.back()));
+
+			for (int i = 0; i < (int)c.compositions.size(); i++)
+			{
+				pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(g, c.compositions[i], variables, tlabel, plabel, pid, tid);
+
+				for (int j = 0; j < (int)sub.first.size(); j++)
+					g.arcs.push_back(parse_astg::arc(left, sub.first[j]));
+
+				for (int j = 0; j < (int)sub.second.size(); j++)
+					g.arcs.push_back(parse_astg::arc(sub.second[j], right));
+			}
+			return result;
+		}
+		else if (c.precedence[c.level] == ",")
+		{
+			for (int i = 0; i < (int)c.compositions.size(); i++)
+			{
+				pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(g, c.compositions[i], variables, tlabel, plabel, pid, tid);
+				result.first.insert(result.first.end(), sub.first.begin(), sub.first.end());
+				result.second.insert(result.second.end(), sub.second.begin(), sub.second.end());
+			}
+			return result;
+		}
+		else
+			return pair<vector<parse_astg::node>, vector<parse_astg::node> >();
+	}
+	else if (c.compositions.size() > 0)
+		return export_astg(g, c.compositions[0], variables, tlabel, plabel, pid, tid);
+	else if (c.guards.size() > 0)
+	{
+		parse_astg::node n(c.guards[0], tlabel);
+		return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
+	}
+	else if (c.literals.size() > 0)
+	{
+		parse_astg::node n(c.literals[0], tlabel);
+		return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
+	}
+	else
+		return pair<vector<parse_astg::node>, vector<parse_astg::node> >();
+}
+
+pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, const hse::graph &g, hse::iterator pos, map<hse::iterator, pair<parse_astg::node, parse_astg::node> > &nodes, ucs::variable_set &variables, string tlabel, string plabel)
+{
+	map<hse::iterator, pair<parse_astg::node, parse_astg::node> >::iterator loc = nodes.find(pos);
+	if (loc == nodes.end())
+	{
+		if (pos.type == hse::transition::type)
+		{
+			if (g.transitions[pos.index].behavior == hse::transition::active)
+			{
+				parse_expression::composition action = export_composition(g.transitions[pos.index].local_action, variables);
+
+				int tid = 1, pid = 1;
+				pair<parse_astg::node, parse_astg::node> inout;
+				pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(astg, action, variables, tlabel, plabel, pid, tid);
+
+				if (sub.first.size() > 1)
+				{
+					// Left side
+					inout.first = parse_astg::node("d" + tlabel, to_string(tid));
+					astg.dummy.push_back(inout.first.to_string());
+
+					tid++;
+
+					for (int i = 0; i < (int)sub.first.size(); i++)
+					{
+						parse_astg::node left("p" + plabel, to_string(pid));
+						pid++;
+						astg.arcs.push_back(parse_astg::arc(inout.first, left));
+						astg.arcs.push_back(parse_astg::arc(left, sub.first[i]));
+					}
+				}
+				else if (sub.first.size() == 1)
+					inout.first = sub.first[0];
+				else
+					internal("", "No left node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
+
+				if (sub.second.size() > 1)
+				{
+					// Right Side
+					inout.second = parse_astg::node("d" + tlabel, to_string(tid));
+					astg.dummy.push_back(inout.second.to_string());
+
+					tid++;
+
+					for (int i = 0; i < (int)sub.second.size(); i++)
+					{
+						parse_astg::node right("p" + plabel, to_string(pid));
+						pid++;
+						astg.arcs.push_back(parse_astg::arc(sub.second[i], right));
+						astg.arcs.push_back(parse_astg::arc(right, inout.second));
+					}
+				}
+				else if (sub.second.size() == 1)
+					inout.second = sub.second[0];
+				else
+					internal("", "No right node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
+
+				loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
+			}
+			else
+			{
+				pair<parse_astg::node, parse_astg::node> inout;
+				inout.first = parse_astg::node(export_expression(g.transitions[pos.index].local_action, variables), to_string(pos.index));
+				inout.second = inout.first;
+
+				loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
+			}
+		}
+		else
+		{
+			pair<parse_astg::node, parse_astg::node> inout;
+			inout.first = parse_astg::node("p" + plabel);
+			inout.second = inout.first;
+
+			loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
+		}
+	}
+
+	return loc->second;
+}
+
+parse_astg::graph export_astg(const hse::graph &g, ucs::variable_set &variables)
+{
+	parse_astg::graph result;
+
+	result.name = "hse";
+
+	// Add the variables
+	for (int i = 0; i < (int)variables.nodes.size(); i++)
+		result.internal.push_back(export_variable_name(i, variables));
+
+	// Add the predicates and effective predicates
+	for (int i = 0; i < (int)g.places.size(); i++)
+	{
+		if (!g.places[i].predicate.is_null())
+			result.predicate.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), export_expression(g.places[i].predicate, variables)));
+
+		if (!g.places[i].effective.is_null())
+			result.effective.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), export_expression(g.places[i].effective, variables)));
+	}
+
+	// Add the arcs
+	map<hse::iterator, pair<parse_astg::node, parse_astg::node> > nodes;
+	vector<int> forks;
+	for (int i = 0; i < (int)g.transitions.size(); i++)
+	{
+		int curr = result.arcs.size();
+		result.arcs.push_back(parse_astg::arc());
+		pair<parse_astg::node, parse_astg::node> t0 = export_astg(result, g, hse::iterator(hse::transition::type, i), nodes, variables, to_string(i), to_string(i));
+		result.arcs[curr].nodes.push_back(t0.second);
+
+		vector<int> n = g.next(hse::transition::type, i);
+
+
+		for (int j = 0; j < (int)n.size(); j++)
+		{
+			vector<int> nn = g.next(hse::place::type, n[j]);
+			vector<int> pn = g.prev(hse::place::type, n[j]);
+
+			bool is_reset = false;
+			for (int k = 0; k < (int)g.reset.size() && !is_reset; k++)
+				for (int l = 0; l < (int)g.reset[k].tokens.size() && !is_reset; l++)
+					if (n[j] == g.reset[k].tokens[l].index)
+						is_reset = true;
+
+			// if this place has exactly one input and one output and it isn't a reset place
+			// then we can just skip over this place in the output
+			if (nn.size() == 1 && pn.size() == 1 && !is_reset && g.places[n[j]].predicate.is_null() && g.places[n[j]].effective.is_null())
+			{
+				pair<parse_astg::node, parse_astg::node> t1 = export_astg(result, g, hse::iterator(hse::transition::type, nn[0]), nodes, variables, to_string(nn[0]), to_string(nn[0]));
+				result.arcs[curr].nodes.push_back(t1.second);
+			}
+			// otherwise we need to keep it
+			else
+			{
+				pair<parse_astg::node, parse_astg::node> p1 = export_astg(result, g, hse::iterator(hse::place::type, n[j]), nodes, variables, to_string(n[j]), to_string(n[j]));
+				result.arcs[curr].nodes.push_back(p1.second);
+				forks.push_back(n[j]);
+			}
+		}
+	}
+
+	sort(forks.begin(), forks.end());
+	forks.resize(unique(forks.begin(), forks.end()) - forks.begin());
+
+	for (int i = 0; i < (int)forks.size(); i++)
+	{
+		int curr = result.arcs.size();
+		result.arcs.push_back(parse_astg::arc());
+		pair<parse_astg::node, parse_astg::node> p0 = export_astg(result, g, hse::iterator(hse::place::type, forks[i]), nodes, variables, to_string(forks[i]), to_string(forks[i]));
+		result.arcs[curr].nodes.push_back(p0.second);
+
+		vector<int> n = g.next(hse::place::type, forks[i]);
+
+		for (int j = 0; j < (int)n.size(); j++)
+		{
+			pair<parse_astg::node, parse_astg::node> t1 = export_astg(result, g, hse::iterator(hse::transition::type, n[j]), nodes, variables, to_string(n[j]), to_string(n[j]));
+			result.arcs[curr].nodes.push_back(t1.second);
+		}
+	}
+
+	// Add the initial markings
+	for (int i = 0; i < (int)g.reset.size(); i++)
+	{
+		result.marking.push_back(pair<parse_expression::expression, vector<parse_astg::node> >());
+		result.marking.back().first = export_expression(g.reset[i].encodings, variables);
+		for (int j = 0; j < (int)g.reset[i].tokens.size(); j++)
+			result.marking.back().second.push_back(parse_astg::node("p" + to_string(g.reset[i].tokens[j].index)));
+	}
+
+	return result;
+}
+
 parse_dot::node_id export_node_id(const petri::iterator &i)
 {
 	parse_dot::node_id result;

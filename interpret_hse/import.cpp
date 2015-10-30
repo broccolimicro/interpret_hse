@@ -8,6 +8,103 @@
 #include "import.h"
 #include <interpret_boolean/import.h>
 
+hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
+{
+	string id = syntax.to_string();
+	map<string, hse::iterator>::iterator loc = ids.find(id);
+	if (loc == ids.end())
+	{
+		if (syntax.assign.valid)
+		{
+			if (syntax.assign.operation == "")
+				loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition()))).first;
+			else
+				loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(hse::transition::active, import_cover(syntax.assign, variables, 0, tokens, false))))).first;
+		}
+		else if (syntax.guard.valid)
+			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(hse::transition::passive, import_cover(syntax.guard, variables, 0, tokens, false))))).first;
+		else if (syntax.place != "")
+			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::place()))).first;
+	}
+
+	if (loc != ids.end())
+		return loc->second;
+	else
+		return hse::iterator();
+}
+
+void import_graph(const parse_astg::arc &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
+{
+	hse::iterator base = import_graph(syntax.nodes[0], variables, g, ids, tokens);
+	for (int i = 1; i < (int)syntax.nodes.size(); i++)
+	{
+		hse::iterator next = import_graph(syntax.nodes[i], variables, g, ids, tokens);
+		g.connect(base, next);
+	}
+}
+
+hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &variables, tokenizer *tokens)
+{
+	hse::graph result;
+	map<string, hse::iterator> ids;
+	for (int i = 0; i < (int)syntax.inputs.size(); i++)
+		define_variables(syntax.inputs[i], variables, 0, tokens, true, false);
+
+	for (int i = 0; i < (int)syntax.outputs.size(); i++)
+		define_variables(syntax.outputs[i], variables, 0, tokens, true, false);
+
+	for (int i = 0; i < (int)syntax.internal.size(); i++)
+		define_variables(syntax.internal[i], variables, 0, tokens, true, false);
+
+	for (int i = 0; i < (int)syntax.arcs.size(); i++)
+		import_graph(syntax.arcs[i], variables, result, ids, tokens);
+
+	for (int i = 0; i < (int)syntax.predicate.size(); i++)
+	{
+		map<string, hse::iterator>::iterator loc = ids.find(syntax.predicate[i].first.to_string());
+		if (loc != ids.end())
+			result.places[loc->second.index].predicate = import_cover(syntax.predicate[i].second, variables, 0, tokens, false);
+		else if (tokens != NULL)
+		{
+			tokens->load(&syntax.predicate[i].first);
+			tokens->error("Undefined node", __FILE__, __LINE__);
+		}
+		else
+			error("", "Undefined node \"" + syntax.predicate[i].first.to_string() + "\"", __FILE__, __LINE__);
+	}
+
+	for (int i = 0; i < (int)syntax.effective.size(); i++)
+	{
+		map<string, hse::iterator>::iterator loc = ids.find(syntax.effective[i].first.to_string());
+		if (loc != ids.end())
+			result.places[loc->second.index].effective = import_cover(syntax.effective[i].second, variables, 0, tokens, false);
+		else if (tokens != NULL)
+		{
+			tokens->load(&syntax.effective[i].first);
+			tokens->error("Undefined node", __FILE__, __LINE__);
+		}
+		else
+			error("", "Undefined node \"" + syntax.effective[i].first.to_string() + "\"", __FILE__, __LINE__);
+	}
+
+	for (int i = 0; i < (int)syntax.marking.size(); i++)
+	{
+		hse::state rst;
+		if (syntax.marking[i].first.valid)
+			rst.encodings = import_cube(syntax.marking[i].first, variables, 0, tokens, false);
+
+		for (int j = 0; j < (int)syntax.marking[i].second.size(); j++)
+		{
+			hse::iterator loc = import_graph(syntax.marking[i].second[j], variables, result, ids, tokens);
+			if (loc.type == hse::place::type && loc.index >= 0)
+				rst.tokens.push_back(loc.index);
+		}
+		result.reset.push_back(rst);
+	}
+
+	return result;
+}
+
 hse::iterator import_graph(const parse_dot::node_id &syntax, map<string, hse::iterator> &nodes, ucs::variable_set &variables, hse::graph &g, tokenizer *tokens, bool define, bool squash_errors)
 {
 	if (syntax.valid && syntax.id.size() > 0)
@@ -256,6 +353,7 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 
 	hse::graph result;
 
+	vector<vector<int> > first_assigns;
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		hse::graph branch;
@@ -263,7 +361,29 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, default_id, tokens, auto_define));
 		if (syntax.branches[i].second.valid)
 			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, default_id, tokens, auto_define));
-		result.merge(hse::choice, branch);
+
+		// record the first assignment of every branch in the control block because
+		// we might need to place arbiters on them
+		first_assigns.push_back(branch.first_assigns());
+
+		map<petri::iterator, petri::iterator> refactor = result.merge(hse::choice, branch);
+
+		// After the merge, we need to translate the locations of the first assignments
+		for (int j = 0; j < (int)first_assigns.back().size(); j++)
+		{
+			map<petri::iterator, petri::iterator>::iterator loc = refactor.find(petri::iterator(hse::transition::type, first_assigns.back()[j]));
+			if (loc != refactor.end())
+				first_assigns.back()[j] = loc->second.index;
+		}
+	}
+
+	if (!syntax.deterministic)
+	{
+		for (int i = 0; i < (int)first_assigns.size(); i++)
+			for (int j = i+1; j < (int)first_assigns.size(); j++)
+				for (int k = 0; k < (int)first_assigns[i].size(); k++)
+					for (int l = 0; l < (int)first_assigns[j].size(); l++)
+						result.arbiters.push_back(pair<int, int>(first_assigns[i][k], first_assigns[j][l]));
 	}
 
 	if (syntax.repeat && syntax.branches.size() > 0)

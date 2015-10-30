@@ -11,6 +11,10 @@
 #include <hse/graph.h>
 #include <hse/state.h>
 
+#include <parse_astg/node.h>
+#include <parse_astg/arc.h>
+#include <parse_astg/graph.h>
+
 #include <parse_dot/node_id.h>
 #include <parse_dot/assignment.h>
 #include <parse_dot/assignment_list.h>
@@ -25,6 +29,12 @@
 
 #ifndef interpret_hse_import_h
 #define interpret_hse_import_h
+
+// ASTG
+
+hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &variables, hse::graph &g, tokenizer *token);
+void import_graph(const parse_astg::arc &syntax, ucs::variable_set &variables, hse::graph &g, tokenizer *tokens);
+hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &variables, tokenizer *tokens);
 
 // DOT
 
