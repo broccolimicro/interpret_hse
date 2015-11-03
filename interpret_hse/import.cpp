@@ -353,7 +353,6 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 
 	hse::graph result;
 
-	vector<vector<int> > first_assigns;
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		hse::graph branch;
@@ -362,32 +361,74 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 		if (syntax.branches[i].second.valid)
 			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, default_id, tokens, auto_define));
 
-		// record the first assignment of every branch in the control block because
-		// we might need to place arbiters on them
-		first_assigns.push_back(branch.first_assigns());
+		result.merge(hse::choice, branch);
+	}
 
-		map<petri::iterator, petri::iterator> refactor = result.merge(hse::choice, branch);
-
-		// After the merge, we need to translate the locations of the first assignments
-		for (int j = 0; j < (int)first_assigns.back().size(); j++)
+	if ((!syntax.deterministic || syntax.repeat) && syntax.branches.size() > 0)
+	{
+		hse::iterator sm = result.create(hse::place());
+		for (int i = 0; i < (int)result.source.size(); i++)
 		{
-			map<petri::iterator, petri::iterator>::iterator loc = refactor.find(petri::iterator(hse::transition::type, first_assigns.back()[j]));
-			if (loc != refactor.end())
-				first_assigns.back()[j] = loc->second.index;
+			if (result.source[i].tokens.size() > 1)
+			{
+				petri::iterator split_t = result.create(hse::transition());
+				result.connect(sm, split_t);
+
+				for (int j = 0; j < (int)result.source[i].tokens.size(); j++)
+					result.connect(split_t, petri::iterator(hse::place::type, result.source[i].tokens[j].index));
+			}
+			else if (result.source[i].tokens.size() == 1)
+			{
+				petri::iterator loc(hse::place::type, result.source[i].tokens[0].index);
+				result.connect(result.prev(loc), sm);
+				result.connect(sm, result.next(loc));
+				for (int j = 0; j < (int)result.arbiters.size(); j++)
+					if (result.arbiters[j] == loc.index)
+						result.arbiters[j] = sm.index;
+				result.erase(loc);
+				if (sm.index > loc.index)
+					sm.index--;
+			}
 		}
+
+		result.source.clear();
+		result.source.push_back(hse::state(vector<petri::token>(1, petri::token(sm.index)), boolean::cube(1)));
 	}
 
 	if (!syntax.deterministic)
-	{
-		for (int i = 0; i < (int)first_assigns.size(); i++)
-			for (int j = i+1; j < (int)first_assigns.size(); j++)
-				for (int k = 0; k < (int)first_assigns[i].size(); k++)
-					for (int l = 0; l < (int)first_assigns[j].size(); l++)
-						result.arbiters.push_back(pair<int, int>(first_assigns[i][k], first_assigns[j][l]));
-	}
+		for (int i = 0; i < (int)result.source.size(); i++)
+			for (int j = 0; j < (int)result.source[i].tokens.size(); j++)
+				result.arbiters.push_back(result.source[i].tokens[j].index);
 
 	if (syntax.repeat && syntax.branches.size() > 0)
 	{
+		hse::iterator sm(hse::place::type, result.source[0].tokens[0].index);
+		for (int i = 0; i < (int)result.sink.size(); i++)
+		{
+			if (result.sink[i].tokens.size() > 1)
+			{
+				petri::iterator merge_t = result.create(hse::transition());
+				result.connect(merge_t, sm);
+
+				for (int j = 0; j < (int)result.sink[i].tokens.size(); j++)
+					result.connect(petri::iterator(hse::place::type, result.sink[i].tokens[j].index), merge_t);
+			}
+			else if (result.sink[i].tokens.size() == 1)
+			{
+				petri::iterator loc(hse::place::type, result.sink[i].tokens[0].index);
+				result.connect(result.prev(loc), sm);
+				result.connect(sm, result.next(loc));
+				for (int j = 0; j < (int)result.arbiters.size(); j++)
+					if (result.arbiters[j] == loc.index)
+						result.arbiters[j] = sm.index;
+				result.erase(loc);
+				if (sm.index > loc.index)
+					sm.index--;
+			}
+		}
+
+		result.sink.clear();
+
 		boolean::cover repeat = 1;
 		for (int i = 0; i < (int)syntax.branches.size() && !repeat.is_null(); i++)
 		{
@@ -405,53 +446,6 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 			}
 		}
 
-		hse::iterator sm = result.create(hse::place());
-		for (int i = 0; i < (int)result.source.size(); i++)
-		{
-			if (result.source[i].tokens.size() > 1)
-			{
-				petri::iterator split_t = result.create(hse::transition());
-				result.connect(sm, split_t);
-
-				for (int j = 0; j < (int)result.source[i].tokens.size(); j++)
-					result.connect(split_t, petri::iterator(hse::place::type, result.source[i].tokens[j].index));
-			}
-			else if (result.source[i].tokens.size() == 1)
-			{
-				petri::iterator loc(hse::place::type, result.source[i].tokens[0].index);
-				result.connect(result.prev(loc), sm);
-				result.connect(sm, result.next(loc));
-				result.erase(loc);
-				if (sm.index > loc.index)
-					sm.index--;
-			}
-		}
-
-		result.source.clear();
-
-		for (int i = 0; i < (int)result.sink.size(); i++)
-		{
-			if (result.sink[i].tokens.size() > 1)
-			{
-				petri::iterator merge_t = result.create(hse::transition());
-				result.connect(merge_t, sm);
-
-				for (int j = 0; j < (int)result.sink[i].tokens.size(); j++)
-					result.connect(petri::iterator(hse::place::type, result.sink[i].tokens[j].index), merge_t);
-			}
-			else if (result.sink[i].tokens.size() == 1)
-			{
-				petri::iterator loc(hse::place::type, result.sink[i].tokens[0].index);
-				result.connect(result.prev(loc), sm);
-				result.connect(sm, result.next(loc));
-				result.erase(loc);
-				if (sm.index > loc.index)
-					sm.index--;
-			}
-		}
-
-		result.sink.clear();
-
 		if (!repeat.is_null())
 		{
 			hse::iterator guard = result.create(hse::transition(hse::transition::passive, repeat));
@@ -467,8 +461,6 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 			result.source = result.reset;
 			result.reset.clear();
 		}
-		else
-			result.source.push_back(hse::state(vector<petri::token>(1, petri::token(sm.index)), boolean::cube(1)));
 	}
 
 	return result;
