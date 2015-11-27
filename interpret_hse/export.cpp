@@ -287,9 +287,9 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 		sub_result.as.push_back(shape);
 
 		bool is_reset = false;
-		for (int j = 0; j < (int)g.source.size() && !is_reset; j++)
-			for (int k = 0; k < (int)g.source[j].tokens.size() && !is_reset; k++)
-				if (i.index == g.source[j].tokens[k].index)
+		for (int j = 0; j < (int)g.reset.size() && !is_reset; j++)
+			for (int k = 0; k < (int)g.reset[j].tokens.size() && !is_reset; k++)
+				if (i.index == g.reset[j].tokens[k].index)
 					is_reset = true;
 
 		if (is_reset)
