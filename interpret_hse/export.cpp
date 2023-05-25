@@ -55,7 +55,10 @@ pair<vector<parse_astg::node>, vector<parse_astg::node> > export_astg(parse_astg
 			return result;
 		}
 		else
-			return pair<vector<parse_astg::node>, vector<parse_astg::node> >();
+		{
+			parse_astg::node n(parse_expression::assignment(), tlabel);
+			return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
+		}
 	}
 	else if (c.compositions.size() > 0)
 		return export_astg(g, c.compositions[0], variables, tlabel, plabel, pid, tid);
@@ -70,7 +73,10 @@ pair<vector<parse_astg::node>, vector<parse_astg::node> > export_astg(parse_astg
 		return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
 	}
 	else
-		return pair<vector<parse_astg::node>, vector<parse_astg::node> >();
+	{
+		parse_astg::node n(parse_expression::assignment(), tlabel);
+		return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
+	}
 }
 
 pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, const hse::graph &g, hse::iterator pos, map<hse::iterator, pair<parse_astg::node, parse_astg::node> > &nodes, ucs::variable_set &variables, string tlabel, string plabel)
@@ -411,12 +417,20 @@ parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph 
 	return result;
 }
 
-parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool labels, int encodings)
+parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool horiz, bool labels, int encodings)
 {
 	parse_dot::graph result;
 	result.valid = true;
 	result.id = "hse";
 	result.type = "digraph";
+
+	if (horiz) {
+		parse_dot::assignment as;
+		as.valid = true;
+		as.first = "rankdir";
+		as.second = "LR";
+		result.attributes.push_back(as);
+	}
 
 	for (int i = 0; i < (int)g.places.size(); i++)
 		result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, v, labels, encodings));

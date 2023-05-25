@@ -41,7 +41,7 @@ parse_dot::node_id export_node_id(const petri::iterator &i);
 parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, ucs::variable_set &variables, bool labels = false, int encodings = -1);
 parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, ucs::variable_set &v, bool labels = false, int encodings = -1);
 parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph &g, ucs::variable_set &v, bool labels = false, int encodings = -1);
-parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool labels = false, int encodings = -1);
+parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool horiz = false, bool labels = false, int encodings = -1);
 
 // HSE
 
