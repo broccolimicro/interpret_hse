@@ -86,12 +86,21 @@ pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, co
 	{
 		if (pos.type == hse::transition::type)
 		{
-			if (g.transitions[pos.index].behavior == hse::transition::active)
-			{
+			// handle guard
+			if (!g.transitions[pos.index].guard.is_tautology()) {
+				pair<parse_astg::node, parse_astg::node> inout;
+				parse_expression::expression guard = export_expression(g.transitions[pos.index].guard, variables);
+				inout.first = parse_astg::node(guard, to_string(pos.index));
+				inout.second = inout.first;
+				loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
+			}
+
+			// handle assignment
+			if (!g.transitions[pos.index].local_action.is_tautology()) {
+				pair<parse_astg::node, parse_astg::node> inout;
 				parse_expression::composition action = export_composition(g.transitions[pos.index].local_action, variables);
 
 				int tid = 1, pid = 1;
-				pair<parse_astg::node, parse_astg::node> inout;
 				pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(astg, action, variables, tlabel, plabel, pid, tid);
 
 				if (sub.first.size() > 1)
@@ -135,14 +144,6 @@ pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, co
 					inout.second = sub.second[0];
 				else
 					internal("", "No right node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
-
-				loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
-			}
-			else
-			{
-				pair<parse_astg::node, parse_astg::node> inout;
-				inout.first = parse_astg::node(export_expression(g.transitions[pos.index].local_action, variables), to_string(pos.index));
-				inout.second = inout.first;
 
 				loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
 			}
@@ -364,10 +365,18 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 		parse_dot::assignment action;
 		action.valid = true;
 		action.first = "label";
-		if (g.transitions[i.index].behavior == hse::transition::active)
+		bool g_vacuous = g.transitions[i.index].guard.is_tautology();
+		bool a_vacuous = g.transitions[i.index].local_action.is_tautology();
+
+		if (!g_vacuous && !a_vacuous) {
+			action.second = export_expression_xfactor(g.transitions[i.index].guard, variables).to_string() + " -> " +
+			                export_composition(g.transitions[i.index].local_action, variables).to_string();
+		} else if (!g_vacuous) {
+			action.second = "[" + export_expression_xfactor(g.transitions[i.index].guard, variables).to_string() + "]";
+		} else {
 			action.second = export_composition(g.transitions[i.index].local_action, variables).to_string();
-		if (g.transitions[i.index].behavior == hse::transition::passive)
-			action.second = "[ " + export_expression_xfactor(g.transitions[i.index].local_action, variables).to_string() + " ]";
+		}
+
 		sub_result.as.push_back(action);
 	}
 
@@ -483,8 +492,14 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 
 	while (1)
 	{
-		if (i.size() == 1 && i[0].type == hse::transition::type && g.transitions[i[0].index].behavior == hse::transition::active)
+		if (i.size() == 1 && i[0].type == hse::transition::type)
 		{
+			parse_chp::control c;
+			c.valid = true;
+			c.branches.resize(1);
+			c.branches[0].first = export_expression(g.transitions[i[0].index].guard, v);
+			result.branches.push_back(parse_chp::branch(c));
+
 			if (g.transitions[i[0].index].local_action.cubes.size() == 1)
 			{
 				vector<int> vars = g.transitions[i[0].index].local_action.cubes[0].vars();
@@ -496,18 +511,8 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 			else
 				result.branches.push_back(parse_chp::branch(export_control(g.transitions[i[0].index].local_action, v)));
 		}
-		else if (i.size() == 1 && i[0].type == hse::transition::type && g.transitions[i[0].index].behavior == hse::transition::passive)
-		{
-			parse_chp::control c;
-			c.valid = true;
-			c.branches.resize(1);
-			c.branches[0].first = export_expression(g.transitions[i[0].index].local_action, v);
-			result.branches.push_back(parse_chp::branch(c));
-		}
 		else if (i.size() > 1 && i[0].type == hse::place::type)
 			result.branches.push_back(parse_chp::branch(export_parallel(i, g, v)));
-		else if (i.size() > 1 && i[0].type == hse::transition::type)
-			result.branches.push_back(parse_chp::branch(export_control(i, g, v)));
 
 		vector<petri::iterator> n = g.next(i);
 		sort(n.begin(), n.end());
@@ -976,19 +981,21 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 			if (j != 0)
 				result += "[]...";
 
-			if (g.transitions[p[j].index].behavior == hse::transition::active)
-				result += export_composition(g.transitions[p[j].index].local_action, v).to_string();
-			else
-				result += "[" + export_expression_xfactor(g.transitions[p[j].index].local_action, v).to_string() + "]";
+			if (!g.transitions[p[j].index].guard.is_tautology())
+				result += "[" + export_expression_xfactor(g.transitions[p[j].index].local_action, v).to_string() + "]; ";
+			
+			result += export_composition(g.transitions[p[j].index].local_action, v).to_string();
 		}
 		result += "] ; ";
 	}
-	else if (p.size() == 1 && g.transitions[p[0].index].behavior == hse::transition::active)
-		result =  export_composition(g.transitions[p[0].index].local_action, v).to_string() + " ; ";
-	else if (p.size() == 1 && g.next(g.prev(p[0])).size() > 1)
-		result = "[" + export_expression_xfactor(g.transitions[p[0].index].local_action, v).to_string() + " -> ";
-	else if (p.size() == 1)
-		result = "[" + export_expression_xfactor(g.transitions[p[0].index].local_action, v).to_string() + "] ; ";
+	else if (p.size() == 1) {
+		result = "";
+		if (!g.transitions[p[0].index].guard.is_tautology()) {
+			result += "[" + export_expression_xfactor(g.transitions[p[0].index].local_action, v).to_string() + "];";
+		}
+
+		result +=  export_composition(g.transitions[p[0].index].local_action, v).to_string() + " ; ";
+	}
 
 	if (n.size() > 1)
 	{
@@ -1001,20 +1008,24 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 			if (n[j] == i)
 				result += " ";
 
-			if (g.transitions[n[j].index].behavior == hse::transition::active)
-				result += "1->" + export_composition(g.transitions[n[j].index].local_action, v).to_string() + "...";
+			if (!g.transitions[n[j].index].guard.is_tautology())
+				result += export_expression_xfactor(g.transitions[n[j].index].local_action, v).to_string() + "->";
 			else
-				result += export_expression_xfactor(g.transitions[n[j].index].local_action, v).to_string() + "->...";
+				result += "1->";
+
+			result += export_composition(g.transitions[n[j].index].local_action, v).to_string() + "...";
 
 			if (n[j] == i)
 				result += " ";
 		}
 		result += "]";
 	}
-	else if (n.size() == 1 && g.transitions[n[0].index].behavior == hse::transition::active)
+	else if (n.size() == 1) {
+		if (!g.transitions[n[0].index].guard.is_tautology()) {
+			result += "[" + export_expression_xfactor(g.transitions[n[0].index].guard, v).to_string() + "];";
+		}
 		result += export_composition(g.transitions[n[0].index].local_action, v).to_string();
-	else if (n.size() == 1)
-		result += "[" + export_expression_xfactor(g.transitions[n[0].index].local_action, v).to_string() + "]";
+	}
 
 	return result;
 }

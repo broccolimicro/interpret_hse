@@ -19,10 +19,10 @@ hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &va
 			if (syntax.assign.operation == "")
 				loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition()))).first;
 			else
-				loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(hse::transition::active, import_cover(syntax.assign, variables, 0, tokens, false))))).first;
+				loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(1, import_cover(syntax.assign, variables, 0, tokens, false))))).first;
 		}
 		else if (syntax.guard.valid)
-			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(hse::transition::passive, import_cover(syntax.guard, variables, 0, tokens, false))))).first;
+			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(import_cover(syntax.guard, variables, 0, tokens, false))))).first;
 		else if (syntax.place != "")
 			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::place()))).first;
 	}
@@ -226,10 +226,10 @@ void import_graph(const parse_dot::statement &syntax, hse::graph &g, ucs::variab
 				temp.increment(false);
 				temp.expect("[");
 
-				int behvior = hse::transition::active;
+				bool is_guard = false;
 				if (temp.decrement(__FILE__, __LINE__))
 				{
-					behvior = hse::transition::passive;
+					is_guard = true;
 					temp.next();
 
 					temp.increment(l, true);
@@ -242,15 +242,18 @@ void import_graph(const parse_dot::statement &syntax, hse::graph &g, ucs::variab
 					c = import_cover(exp, variables, 0, &temp, true);
 				}
 
-				if (behvior == hse::transition::passive && temp.decrement(__FILE__, __LINE__))
+				if (is_guard && temp.decrement(__FILE__, __LINE__))
 					temp.next();
 
 				for (int i = 0; i < (int)n.size(); i++)
 				{
 					if (n[i].type == hse::transition::type)
 					{
-						g.transitions[n[i].index].behavior = behvior;
-						g.transitions[n[i].index].local_action = c;
+						if (is_guard) {
+							g.transitions[n[i].index].guard = c;
+						} else {
+							g.transitions[n[i].index].local_action = c;
+						}
 					}
 					else if (n[i].type == hse::place::type)
 					{
@@ -289,7 +292,7 @@ hse::graph import_graph(const parse_expression::expression &syntax, ucs::variabl
 {
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
-	hse::iterator t = result.create(hse::transition(hse::transition::passive, import_cover(syntax, variables, default_id, tokens, auto_define)));
+	hse::iterator t = result.create(hse::transition(import_cover(syntax, variables, default_id, tokens, auto_define)));
 	hse::iterator e = result.create(hse::place());
 
 	result.connect(b, t);
@@ -304,7 +307,7 @@ hse::graph import_graph(const parse_expression::assignment &syntax, ucs::variabl
 {
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
-	hse::iterator t = result.create(hse::transition(hse::transition::active, import_cover(syntax, variables, default_id, tokens, auto_define)));
+	hse::iterator t = result.create(hse::transition(1, import_cover(syntax, variables, default_id, tokens, auto_define)));
 	hse::iterator e = result.create(hse::place());
 
 	result.connect(b, t);
@@ -448,7 +451,7 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 
 		if (!repeat.is_null())
 		{
-			hse::iterator guard = result.create(hse::transition(hse::transition::passive, repeat));
+			hse::iterator guard = result.create(hse::transition(repeat));
 			result.connect(sm, guard);
 			hse::iterator arrow = result.create(hse::place());
 			result.connect(guard, arrow);
