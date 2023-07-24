@@ -82,74 +82,51 @@ pair<vector<parse_astg::node>, vector<parse_astg::node> > export_astg(parse_astg
 pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, const hse::graph &g, hse::iterator pos, map<hse::iterator, pair<parse_astg::node, parse_astg::node> > &nodes, ucs::variable_set &variables, string tlabel, string plabel)
 {
 	map<hse::iterator, pair<parse_astg::node, parse_astg::node> >::iterator loc = nodes.find(pos);
-	if (loc == nodes.end())
-	{
-		if (pos.type == hse::transition::type)
-		{
-			// handle guard
-			if (!g.transitions[pos.index].guard.is_tautology()) {
-				pair<parse_astg::node, parse_astg::node> inout;
-				parse_expression::expression guard = export_expression(g.transitions[pos.index].guard, variables);
-				inout.first = parse_astg::node(guard, to_string(pos.index));
-				inout.second = inout.first;
-				loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
+	if (loc == nodes.end()) {
+		if (pos.type == hse::transition::type) {
+			pair<parse_astg::node, parse_astg::node> inout;
+
+			int tid = 1, pid = 1;
+			parse_expression::composition action = export_composition(g.transitions[pos.index].local_action, variables);
+			pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(astg, action, variables, tlabel, plabel, pid, tid);
+
+			parse_expression::expression guard = export_expression(g.transitions[pos.index].guard, variables);
+			inout.first = parse_astg::node(guard, to_string(tid));
+
+			if (sub.first.size() > 0) {
+				tid++;
+
+				for (int i = 0; i < (int)sub.first.size(); i++) {
+					parse_astg::node left("p" + plabel, to_string(pid));
+					pid++;
+					astg.arcs.push_back(parse_astg::arc(inout.first, left));
+					astg.arcs.push_back(parse_astg::arc(left, sub.first[i]));
+				}
+			} else {
+				internal("", "No left node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
 			}
 
-			// handle assignment
-			if (!g.transitions[pos.index].local_action.is_tautology()) {
-				pair<parse_astg::node, parse_astg::node> inout;
-				parse_expression::composition action = export_composition(g.transitions[pos.index].local_action, variables);
+			if (sub.second.size() > 1) {
+				// Right Side
+				inout.second = parse_astg::node("d" + tlabel, to_string(tid));
+				astg.dummy.push_back(inout.second.to_string());
 
-				int tid = 1, pid = 1;
-				pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(astg, action, variables, tlabel, plabel, pid, tid);
+				tid++;
 
-				if (sub.first.size() > 1)
-				{
-					// Left side
-					inout.first = parse_astg::node("d" + tlabel, to_string(tid));
-					astg.dummy.push_back(inout.first.to_string());
-
-					tid++;
-
-					for (int i = 0; i < (int)sub.first.size(); i++)
-					{
-						parse_astg::node left("p" + plabel, to_string(pid));
-						pid++;
-						astg.arcs.push_back(parse_astg::arc(inout.first, left));
-						astg.arcs.push_back(parse_astg::arc(left, sub.first[i]));
-					}
+				for (int i = 0; i < (int)sub.second.size(); i++) {
+					parse_astg::node right("p" + plabel, to_string(pid));
+					pid++;
+					astg.arcs.push_back(parse_astg::arc(sub.second[i], right));
+					astg.arcs.push_back(parse_astg::arc(right, inout.second));
 				}
-				else if (sub.first.size() == 1)
-					inout.first = sub.first[0];
-				else
-					internal("", "No left node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
-
-				if (sub.second.size() > 1)
-				{
-					// Right Side
-					inout.second = parse_astg::node("d" + tlabel, to_string(tid));
-					astg.dummy.push_back(inout.second.to_string());
-
-					tid++;
-
-					for (int i = 0; i < (int)sub.second.size(); i++)
-					{
-						parse_astg::node right("p" + plabel, to_string(pid));
-						pid++;
-						astg.arcs.push_back(parse_astg::arc(sub.second[i], right));
-						astg.arcs.push_back(parse_astg::arc(right, inout.second));
-					}
-				}
-				else if (sub.second.size() == 1)
-					inout.second = sub.second[0];
-				else
-					internal("", "No right node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
-
-				loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
+			} else if (sub.second.size() == 1) {
+				inout.second = sub.second[0];
+			} else {
+				internal("", "No right node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
 			}
-		}
-		else
-		{
+
+			loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
+		} else {
 			pair<parse_astg::node, parse_astg::node> inout;
 			inout.first = parse_astg::node("p" + plabel);
 			inout.second = inout.first;
@@ -272,21 +249,19 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 
 	if (i.type == hse::place::type)
 	{
-		bool is_arbiter = (find(g.arbiters.begin(), g.arbiters.end(), i.index) != g.arbiters.end());
-
 		parse_dot::assignment shape;
 		shape.valid = true;
 		shape.first = "shape";
 		if (encodings >= 0)
 		{
-			if (is_arbiter)
+			if (g.places[i.index].arbiter)
 				shape.second = "rectangle";
 			else
 				shape.second = "ellipse";
 		}
 		else
 		{
-			if (is_arbiter)
+			if (g.places[i.index].arbiter)
 				shape.second = "square";
 			else
 				shape.second = "circle";
@@ -982,7 +957,7 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 				result += "[]...";
 
 			if (!g.transitions[p[j].index].guard.is_tautology())
-				result += "[" + export_expression_xfactor(g.transitions[p[j].index].local_action, v).to_string() + "]; ";
+				result += "[" + export_expression_xfactor(g.transitions[p[j].index].guard, v).to_string() + "]; ";
 			
 			result += export_composition(g.transitions[p[j].index].local_action, v).to_string();
 		}
@@ -991,7 +966,7 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 	else if (p.size() == 1) {
 		result = "";
 		if (!g.transitions[p[0].index].guard.is_tautology()) {
-			result += "[" + export_expression_xfactor(g.transitions[p[0].index].local_action, v).to_string() + "];";
+			result += "[" + export_expression_xfactor(g.transitions[p[0].index].guard, v).to_string() + "];";
 		}
 
 		result +=  export_composition(g.transitions[p[0].index].local_action, v).to_string() + " ; ";
@@ -1009,7 +984,7 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 				result += " ";
 
 			if (!g.transitions[n[j].index].guard.is_tautology())
-				result += export_expression_xfactor(g.transitions[n[j].index].local_action, v).to_string() + "->";
+				result += export_expression_xfactor(g.transitions[n[j].index].guard, v).to_string() + "->";
 			else
 				result += "1->";
 

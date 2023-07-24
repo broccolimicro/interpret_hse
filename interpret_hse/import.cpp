@@ -385,9 +385,7 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 				petri::iterator loc(hse::place::type, result.source[i].tokens[0].index);
 				result.connect(result.prev(loc), sm);
 				result.connect(sm, result.next(loc));
-				for (int j = 0; j < (int)result.arbiters.size(); j++)
-					if (result.arbiters[j] == loc.index)
-						result.arbiters[j] = sm.index;
+				result.places[sm.index].arbiter = (result.places[sm.index].arbiter or result.places[loc.index].arbiter);
 				result.erase(loc);
 				if (sm.index > loc.index)
 					sm.index--;
@@ -401,7 +399,7 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 	if (!syntax.deterministic)
 		for (int i = 0; i < (int)result.source.size(); i++)
 			for (int j = 0; j < (int)result.source[i].tokens.size(); j++)
-				result.arbiters.push_back(result.source[i].tokens[j].index);
+				result.places[result.source[i].tokens[j].index].arbiter = true;
 
 	if (syntax.repeat && syntax.branches.size() > 0)
 	{
@@ -421,9 +419,7 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 				petri::iterator loc(hse::place::type, result.sink[i].tokens[0].index);
 				result.connect(result.prev(loc), sm);
 				result.connect(sm, result.next(loc));
-				for (int j = 0; j < (int)result.arbiters.size(); j++)
-					if (result.arbiters[j] == loc.index)
-						result.arbiters[j] = sm.index;
+				result.places[sm.index].arbiter = (result.places[sm.index].arbiter or result.places[loc.index].arbiter);
 				result.erase(loc);
 				if (sm.index > loc.index)
 					sm.index--;
