@@ -31,7 +31,6 @@
 
 // ASTG
 
-pair<vector<parse_astg::node>, vector<parse_astg::node> > export_astg(parse_astg::graph &g, parse_expression::composition c, ucs::variable_set &variables, string label, int &pid, int &tid);
 pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &g, parse_expression::composition c, ucs::variable_set &variables, string label);
 parse_astg::graph export_astg(const hse::graph &g, ucs::variable_set &variables);
 

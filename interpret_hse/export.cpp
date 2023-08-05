@@ -7,78 +7,6 @@
 
 #include "export.h"
 
-pair<vector<parse_astg::node>, vector<parse_astg::node> > export_astg(parse_astg::graph &g, parse_expression::composition c, ucs::variable_set &variables, string tlabel, string plabel, int &pid, int &tid)
-{
-	if (c.compositions.size() + c.guards.size() + c.literals.size() > 1)
-	{
-		pair<vector<parse_astg::node>, vector<parse_astg::node> > result;
-		if (c.precedence[c.level] == ":")
-		{
-			// Left side
-			result.first.push_back(parse_astg::node("d" + tlabel, to_string(tid)));
-			g.dummy.push_back(result.first.back().to_string());
-
-			tid++;
-			parse_astg::node left("p" + plabel, to_string(pid));
-			pid++;
-			g.arcs.push_back(parse_astg::arc(result.first.back(), left));
-
-			// Right Side
-			result.second.push_back(parse_astg::node("d" + tlabel, to_string(tid)));
-			g.dummy.push_back(result.second.back().to_string());
-
-			tid++;
-			parse_astg::node right("p" + plabel, to_string(pid));
-			pid++;
-			g.arcs.push_back(parse_astg::arc(right, result.second.back()));
-
-			for (int i = 0; i < (int)c.compositions.size(); i++)
-			{
-				pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(g, c.compositions[i], variables, tlabel, plabel, pid, tid);
-
-				for (int j = 0; j < (int)sub.first.size(); j++)
-					g.arcs.push_back(parse_astg::arc(left, sub.first[j]));
-
-				for (int j = 0; j < (int)sub.second.size(); j++)
-					g.arcs.push_back(parse_astg::arc(sub.second[j], right));
-			}
-			return result;
-		}
-		else if (c.precedence[c.level] == ",")
-		{
-			for (int i = 0; i < (int)c.compositions.size(); i++)
-			{
-				pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(g, c.compositions[i], variables, tlabel, plabel, pid, tid);
-				result.first.insert(result.first.end(), sub.first.begin(), sub.first.end());
-				result.second.insert(result.second.end(), sub.second.begin(), sub.second.end());
-			}
-			return result;
-		}
-		else
-		{
-			parse_astg::node n(parse_expression::assignment(), tlabel);
-			return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
-		}
-	}
-	else if (c.compositions.size() > 0)
-		return export_astg(g, c.compositions[0], variables, tlabel, plabel, pid, tid);
-	else if (c.guards.size() > 0)
-	{
-		parse_astg::node n(c.guards[0], tlabel);
-		return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
-	}
-	else if (c.literals.size() > 0)
-	{
-		parse_astg::node n(c.literals[0], tlabel);
-		return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
-	}
-	else
-	{
-		parse_astg::node n(parse_expression::assignment(), tlabel);
-		return pair<vector<parse_astg::node>, vector<parse_astg::node> >(vector<parse_astg::node>(1, n), vector<parse_astg::node>(1, n));
-	}
-}
-
 pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, const hse::graph &g, hse::iterator pos, map<hse::iterator, pair<parse_astg::node, parse_astg::node> > &nodes, ucs::variable_set &variables, string tlabel, string plabel)
 {
 	map<hse::iterator, pair<parse_astg::node, parse_astg::node> >::iterator loc = nodes.find(pos);
@@ -86,44 +14,10 @@ pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, co
 		if (pos.type == hse::transition::type) {
 			pair<parse_astg::node, parse_astg::node> inout;
 
-			int tid = 1, pid = 1;
-			parse_expression::composition action = export_composition(g.transitions[pos.index].local_action, variables);
-			pair<vector<parse_astg::node>, vector<parse_astg::node> > sub = export_astg(astg, action, variables, tlabel, plabel, pid, tid);
-
 			parse_expression::expression guard = export_expression(g.transitions[pos.index].guard, variables);
-			inout.first = parse_astg::node(guard, to_string(tid));
-
-			if (sub.first.size() > 0) {
-				tid++;
-
-				for (int i = 0; i < (int)sub.first.size(); i++) {
-					parse_astg::node left("p" + plabel, to_string(pid));
-					pid++;
-					astg.arcs.push_back(parse_astg::arc(inout.first, left));
-					astg.arcs.push_back(parse_astg::arc(left, sub.first[i]));
-				}
-			} else {
-				internal("", "No left node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
-			}
-
-			if (sub.second.size() > 1) {
-				// Right Side
-				inout.second = parse_astg::node("d" + tlabel, to_string(tid));
-				astg.dummy.push_back(inout.second.to_string());
-
-				tid++;
-
-				for (int i = 0; i < (int)sub.second.size(); i++) {
-					parse_astg::node right("p" + plabel, to_string(pid));
-					pid++;
-					astg.arcs.push_back(parse_astg::arc(sub.second[i], right));
-					astg.arcs.push_back(parse_astg::arc(right, inout.second));
-				}
-			} else if (sub.second.size() == 1) {
-				inout.second = sub.second[0];
-			} else {
-				internal("", "No right node for transition \"" + action.to_string() + "\"", __FILE__, __LINE__);
-			}
+			parse_expression::composition action = export_composition(g.transitions[pos.index].local_action, variables);
+			inout.first = parse_astg::node(guard, action, tlabel);
+			inout.second = inout.first;
 
 			loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
 		} else {

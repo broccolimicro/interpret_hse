@@ -14,17 +14,14 @@ hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &va
 	map<string, hse::iterator>::iterator loc = ids.find(id);
 	if (loc == ids.end())
 	{
-		if (syntax.assign.valid)
-		{
-			if (syntax.assign.operation == "")
-				loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition()))).first;
-			else
-				loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(1, import_cover(syntax.assign, variables, 0, tokens, false))))).first;
-		}
+		if (syntax.guard.valid && syntax.assign.valid)
+			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(import_cover(syntax.guard, variables, 0, tokens, false), import_cover(syntax.assign, variables, 0, tokens, false))))).first;
 		else if (syntax.guard.valid)
 			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(import_cover(syntax.guard, variables, 0, tokens, false))))).first;
 		else if (syntax.place != "")
 			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::place()))).first;
+		else
+			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition()))).first;
 	}
 
 	if (loc != ids.end())
