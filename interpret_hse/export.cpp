@@ -134,50 +134,49 @@ parse_dot::node_id export_node_id(const petri::iterator &i)
 	return result;
 }
 
-parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, ucs::variable_set &variables, bool labels, int encodings)
+parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, ucs::variable_set &variables, bool labels, bool notations, int encodings)
 {
 	parse_dot::attribute_list result;
 	result.valid = true;
 	parse_dot::assignment_list sub_result;
 	sub_result.valid = true;
 
-	if (i.type == hse::place::type)
-	{
+	if (i.type == hse::place::type) {
 		parse_dot::assignment shape;
 		shape.valid = true;
 		shape.first = "shape";
-		if (encodings >= 0)
-		{
-			if (g.places[i.index].arbiter)
+		if (encodings >= 0) {
+			if (g.places[i.index].arbiter) {
 				shape.second = "rectangle";
-			else
+			} else {
 				shape.second = "ellipse";
-		}
-		else
-		{
-			if (g.places[i.index].arbiter)
+			}
+		} else {
+			if (g.places[i.index].arbiter) {
 				shape.second = "square";
-			else
+			} else {
 				shape.second = "circle";
+			}
 		}
 		sub_result.as.push_back(shape);
 
 		bool is_reset = false;
-		for (int j = 0; j < (int)g.reset.size() && !is_reset; j++)
-			for (int k = 0; k < (int)g.reset[j].tokens.size() && !is_reset; k++)
-				if (i.index == g.reset[j].tokens[k].index)
+		for (int j = 0; j < (int)g.reset.size() && !is_reset; j++) {
+			for (int k = 0; k < (int)g.reset[j].tokens.size() && !is_reset; k++) {
+				if (i.index == g.reset[j].tokens[k].index) {
 					is_reset = true;
+				}
+			}
+		}
 
-		if (is_reset)
-		{
+		if (is_reset) {
 			parse_dot::assignment marked;
 			marked.valid = true;
 			marked.first = "style";
 			marked.second = "filled";
 
 			sub_result.as.push_back(marked);
-			if (encodings < 0)
-			{
+			if (encodings < 0 && !notations) {
 				parse_dot::assignment color;
 				color.valid = true;
 				color.first = "fillcolor";
@@ -196,9 +195,7 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 				size.second = "0.15";
 				sub_result.as.push_back(size);
 			}
-		}
-		else if (encodings < 0)
-		{
+		} else if (encodings < 0) {
 			parse_dot::assignment size;
 			size.valid = true;
 			size.first = "width";
@@ -206,25 +203,32 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 			sub_result.as.push_back(size);
 		}
 
-		if (encodings == 0)
-		{
-			parse_dot::assignment encoding;
-			encoding.valid = true;
-			encoding.first = "label";
+		parse_dot::assignment encoding;
+		encoding.valid = true;
+		encoding.first = "label";
+		if (encodings == 0) {
 			encoding.second = line_wrap(export_expression_hfactor(g.places[i.index].predicate, variables).to_string(), 80);
-			sub_result.as.push_back(encoding);
-		}
-		else if (encodings > 0)
-		{
-			parse_dot::assignment encoding;
-			encoding.valid = true;
-			encoding.first = "label";
+		} else if (encodings > 0) {
 			encoding.second = line_wrap(export_expression_hfactor(g.places[i.index].effective, variables).to_string(), 80);
-			sub_result.as.push_back(encoding);
+		} else {
+			encoding.second = "";
 		}
-	}
-	else
-	{
+
+		if (notations) {
+			if (encoding.second != "") {
+				encoding.second += "\n";
+			}
+			encoding.second += "[";
+			for (int j = 0; j < (int)g.places[i.index].parallel_groups.size(); j++) {
+				if (j != 0) {
+					encoding.second += ",";
+				}
+				encoding.second += g.places[i.index].parallel_groups[j].to_string();
+			}
+			encoding.second += "]";
+		}
+		sub_result.as.push_back(encoding);
+	} else {
 		parse_dot::assignment plaintext;
 		plaintext.valid = true;
 		plaintext.first = "shape";
@@ -246,11 +250,23 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 			action.second = export_composition(g.transitions[i.index].local_action, variables).to_string();
 		}
 
+		if (notations) {
+			if (action.second != "") {
+				action.second += "\n";
+			}
+			action.second += "[";
+			for (int j = 0; j < (int)g.transitions[i.index].parallel_groups.size(); j++) {
+				if (j != 0) {
+					action.second += ",";
+				}
+				action.second += g.transitions[i.index].parallel_groups[j].to_string();
+			}
+			action.second += "]";
+		}
 		sub_result.as.push_back(action);
 	}
 
-	if (labels)
-	{
+	if (labels) {
 		parse_dot::assignment label;
 		label.valid = true;
 		label.first = "xlabel";
@@ -262,17 +278,17 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 	return result;
 }
 
-parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, ucs::variable_set &v, bool labels, int encodings)
+parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, ucs::variable_set &v, bool labels, bool notations, int encodings)
 {
 	parse_dot::statement result;
 	result.valid = true;
 	result.statement_type = "node";
 	result.nodes.push_back(new parse_dot::node_id(export_node_id(i)));
-	result.attributes = export_attribute_list(i, g, v, labels, encodings);
+	result.attributes = export_attribute_list(i, g, v, labels, notations, encodings);
 	return result;
 }
 
-parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph &g, ucs::variable_set &v, bool labels, int encodings)
+parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph &g, ucs::variable_set &v, bool labels, bool notations, int encodings)
 {
 	parse_dot::statement result;
 	result.valid = true;
@@ -295,7 +311,7 @@ parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph 
 	return result;
 }
 
-parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool horiz, bool labels, int encodings)
+parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool horiz, bool labels, bool notations, int encodings)
 {
 	parse_dot::graph result;
 	result.valid = true;
@@ -311,14 +327,14 @@ parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool ho
 	}
 
 	for (int i = 0; i < (int)g.places.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, v, labels, encodings));
+		result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, v, labels, notations, encodings));
 
 	for (int i = 0; i < (int)g.transitions.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, v, labels, encodings));
+		result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, v, labels, notations, encodings));
 
 	for (int i = 0; i < 2; i++)
 		for (int j = 0; j < (int)g.arcs[i].size(); j++)
-			result.statements.push_back(export_statement(pair<int, int>(i, j), g, v, labels, encodings));
+			result.statements.push_back(export_statement(pair<int, int>(i, j), g, v, labels, notations, encodings));
 
 	return result;
 }
@@ -819,26 +835,15 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 
 	if (i.type == hse::transition::type)
 	{
-		vector<petri::iterator> pp;
-		vector<petri::iterator> np;
-
-		//bool proper_nest = true;
-		for (int j = 0; j < (int)p.size(); j++)
-		{
-			vector<petri::iterator> tmp = g.prev(p[j]);
-			pp.insert(pp.begin(), tmp.begin(), tmp.end());
-			tmp = g.next(p[j]);
-			np.insert(np.begin(), tmp.begin(), tmp.end());
-			//if (p.size() > 1 && tmp.size() > 1)
-			//	proper_nest = false;
-		}
+		vector<petri::iterator> pp = g.prev(p);
+		vector<petri::iterator> nn = g.next(n);
 
 		sort(pp.begin(), pp.end());
 		pp.resize(unique(pp.begin(), pp.end()) - pp.begin());
-		sort(np.begin(), np.end());
-		np.resize(unique(np.begin(), np.end()) - np.begin());
+		sort(nn.begin(), nn.end());
+		nn.resize(unique(nn.begin(), nn.end()) - nn.begin());
 
-		n = np;
+		n = nn;
 		p = pp;
 	}
 
@@ -855,7 +860,7 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 			
 			result += export_composition(g.transitions[p[j].index].local_action, v).to_string();
 		}
-		result += "] ; ";
+		result += "]";
 	}
 	else if (p.size() == 1) {
 		result = "";
@@ -863,7 +868,17 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 			result += "[" + export_expression_xfactor(g.transitions[p[0].index].guard, v).to_string() + "];";
 		}
 
-		result +=  export_composition(g.transitions[p[0].index].local_action, v).to_string() + " ; ";
+		result +=  export_composition(g.transitions[p[0].index].local_action, v).to_string();
+	}
+
+	if (i.type == hse::place::type) {
+		result += " ; ";
+	} else {
+		if (!g.transitions[i.index].guard.is_tautology()) {
+			result += ";[" + export_expression_xfactor(g.transitions[i.index].guard, v).to_string() + "] ; ";
+		}
+
+		result +=  export_composition(g.transitions[i.index].local_action, v).to_string() + ";";
 	}
 
 	if (n.size() > 1)

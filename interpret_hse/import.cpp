@@ -10,24 +10,40 @@
 
 hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
 {
-	string id = syntax.to_string();
-	map<string, hse::iterator>::iterator loc = ids.find(id);
-	if (loc == ids.end())
+	hse::iterator i(-1,-1);
+	if (syntax.id.size() > 0) {
+		i.type = hse::transition::type;
+		i.index = std::stoi(syntax.id);
+	} else if (syntax.place.size() > 0 && syntax.place[0] == 'p') {
+		i.type = hse::place::type;
+		i.index = std::stoi(syntax.place.substr(1));
+	} else if (tokens != NULL) {
+		tokens->load(&syntax);
+		tokens->error("Undefined node", __FILE__, __LINE__);
+		return i;
+	} else {
+		error("", "Undefined node \"" + syntax.to_string() + "\"", __FILE__, __LINE__);
+		return i;
+	}
+	
+	auto created = ids.insert(pair<string, hse::iterator>(syntax.to_string(), i));
+	if (created.second && i.type == hse::transition::type)
 	{
-		if (syntax.guard.valid && syntax.assign.valid)
-			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(import_cover(syntax.guard, variables, 0, tokens, false), import_cover(syntax.assign, variables, 0, tokens, false))))).first;
-		else if (syntax.guard.valid)
-			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition(import_cover(syntax.guard, variables, 0, tokens, false))))).first;
-		else if (syntax.place != "")
-			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::place()))).first;
-		else
-			loc = ids.insert(pair<string, hse::iterator>(id, g.create(hse::transition()))).first;
+		boolean::cover guard = 1;
+		boolean::cover action = 1;
+		if (syntax.guard.valid) {
+			guard = import_cover(syntax.guard, variables, 0, tokens, false);
+		}
+		if (syntax.assign.valid) {
+			action = import_cover(syntax.assign, variables, 0, tokens, false);
+		}
+		
+		g.create_at(hse::transition(guard, action), i.index);
+	} else if (created.second) {
+		g.create_at(hse::place(), i.index);
 	}
 
-	if (loc != ids.end())
-		return loc->second;
-	else
-		return hse::iterator();
+	return i;
 }
 
 void import_graph(const parse_astg::arc &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
