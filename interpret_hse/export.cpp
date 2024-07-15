@@ -219,11 +219,11 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 				encoding.second += "\n";
 			}
 			encoding.second += "[";
-			for (int j = 0; j < (int)g.places[i.index].parallel_groups.size(); j++) {
+			for (int j = 0; j < (int)g.places[i.index].groups[petri::parallel].size(); j++) {
 				if (j != 0) {
 					encoding.second += ",";
 				}
-				encoding.second += g.places[i.index].parallel_groups[j].to_string();
+				encoding.second += g.places[i.index].groups[petri::parallel][j].to_string();
 			}
 			encoding.second += "]";
 		}
@@ -255,11 +255,11 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 				action.second += "\n";
 			}
 			action.second += "[";
-			for (int j = 0; j < (int)g.transitions[i.index].parallel_groups.size(); j++) {
+			for (int j = 0; j < (int)g.transitions[i.index].groups[petri::parallel].size(); j++) {
 				if (j != 0) {
 					action.second += ",";
 				}
-				action.second += g.transitions[i.index].parallel_groups[j].to_string();
+				action.second += g.transitions[i.index].groups[petri::parallel][j].to_string();
 			}
 			action.second += "]";
 		}
