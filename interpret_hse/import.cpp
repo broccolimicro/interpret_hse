@@ -115,6 +115,13 @@ hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &vari
 		result.reset.push_back(rst);
 	}
 
+	for (int i = 0; i < (int)syntax.arbiter.size(); i++) {
+		hse::iterator loc = import_graph(syntax.arbiter[i], variables, result, ids, tokens);
+		if (loc.type == hse::place::type and loc.index >= 0) {
+			result.places[loc.index].arbiter = true;
+		}
+	}
+
 	return result;
 }
 

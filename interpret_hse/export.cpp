@@ -76,20 +76,9 @@ parse_astg::graph export_astg(const hse::graph &g, ucs::variable_set &variables)
 					if (n[j] == g.reset[k].tokens[l].index)
 						is_reset = true;
 
-			// if this place has exactly one input and one output and it isn't a reset place
-			// then we can just skip over this place in the output
-			if (nn.size() == 1 && pn.size() == 1 && !is_reset && g.places[n[j]].predicate.is_null() && g.places[n[j]].effective.is_null())
-			{
-				pair<parse_astg::node, parse_astg::node> t1 = export_astg(result, g, hse::iterator(hse::transition::type, nn[0]), nodes, variables, to_string(nn[0]), to_string(nn[0]));
-				result.arcs[curr].nodes.push_back(t1.second);
-			}
-			// otherwise we need to keep it
-			else
-			{
-				pair<parse_astg::node, parse_astg::node> p1 = export_astg(result, g, hse::iterator(hse::place::type, n[j]), nodes, variables, to_string(n[j]), to_string(n[j]));
-				result.arcs[curr].nodes.push_back(p1.second);
-				forks.push_back(n[j]);
-			}
+			pair<parse_astg::node, parse_astg::node> p1 = export_astg(result, g, hse::iterator(hse::place::type, n[j]), nodes, variables, to_string(n[j]), to_string(n[j]));
+			result.arcs[curr].nodes.push_back(p1.second);
+			forks.push_back(n[j]);
 		}
 	}
 
@@ -119,6 +108,13 @@ parse_astg::graph export_astg(const hse::graph &g, ucs::variable_set &variables)
 		result.marking.back().first = export_expression(g.reset[i].encodings, variables);
 		for (int j = 0; j < (int)g.reset[i].tokens.size(); j++)
 			result.marking.back().second.push_back(parse_astg::node("p" + to_string(g.reset[i].tokens[j].index)));
+	}
+
+	// Add the arbiters
+	for (int i = 0; i < (int)g.places.size(); i++) {
+		if (g.places[i].arbiter) {
+			result.arbiter.push_back(parse_astg::node("p" + to_string(i)));
+		}
 	}
 
 	return result;
@@ -379,11 +375,13 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 	{
 		if (i.size() == 1 && i[0].type == hse::transition::type)
 		{
-			parse_chp::control c;
-			c.valid = true;
-			c.branches.resize(1);
-			c.branches[0].first = export_expression(g.transitions[i[0].index].guard, v);
-			result.branches.push_back(parse_chp::branch(c));
+			if (not g.transitions[i[0].index].guard.is_tautology()) {
+				parse_chp::control c;
+				c.valid = true;
+				c.branches.resize(1);
+				c.branches[0].first = export_expression(g.transitions[i[0].index].guard, v);
+				result.branches.push_back(parse_chp::branch(c));
+			}
 
 			if (g.transitions[i[0].index].local_action.cubes.size() == 1)
 			{
@@ -872,10 +870,12 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 	}
 
 	if (i.type == hse::place::type) {
-		result += " ; ";
+		result += "; <here> ";
 	} else {
-		if (!g.transitions[i.index].guard.is_tautology()) {
-			result += ";[" + export_expression_xfactor(g.transitions[i.index].guard, v).to_string() + "] ; ";
+		if (not g.transitions[i.index].guard.is_tautology()) {
+			result += ";[" + export_expression_xfactor(g.transitions[i.index].guard, v).to_string() + "]; <here> ";
+		} else {
+			result += "; <here> ";
 		}
 
 		result +=  export_composition(g.transitions[i.index].local_action, v).to_string() + ";";
