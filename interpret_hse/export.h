@@ -1,9 +1,4 @@
-/*
- * export.h
- *
- *  Created on: Feb 6, 2015
- *      Author: nbingham
- */
+#pragma once
 
 #include <common/standard.h>
 
@@ -26,8 +21,7 @@
 
 #include <interpret_boolean/export.h>
 
-#ifndef interpret_hse_export_h
-#define interpret_hse_export_h
+namespace hse {
 
 // ASTG
 
@@ -44,7 +38,7 @@ parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool ho
 
 // HSE
 
-parse_chp::composition export_composition(boolean::cube c, ucs::variable_set &variables);
+parse_chp::composition export_parallel(boolean::cube c, ucs::variable_set &variables);
 parse_chp::control export_control(boolean::cover c, ucs::variable_set &variables);
 parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v);
 parse_chp::composition export_parallel(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v);
@@ -57,6 +51,4 @@ parse_chp::control export_control(vector<hse::iterator> &i, const hse::graph &g,
 /*parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable_set &v);*/
 string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_set &v);
 
-
-
-#endif
+}

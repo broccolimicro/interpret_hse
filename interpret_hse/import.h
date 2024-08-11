@@ -1,9 +1,4 @@
-/*
- * import.h
- *
- *  Created on: Feb 6, 2015
- *      Author: nbingham
- */
+#pragma once
 
 #include <common/standard.h>
 
@@ -27,28 +22,27 @@
 #include <parse_expression/expression.h>
 #include <parse_expression/assignment.h>
 
-#ifndef interpret_hse_import_h
-#define interpret_hse_import_h
+namespace hse {
 
 // ASTG
 
-hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &variables, hse::graph &g, tokenizer *token);
-void import_graph(const parse_astg::arc &syntax, ucs::variable_set &variables, hse::graph &g, tokenizer *tokens);
-hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &variables, tokenizer *tokens);
+hse::iterator import_hse(const parse_astg::node &syntax, ucs::variable_set &variables, hse::graph &g, tokenizer *token);
+void import_hse(const parse_astg::arc &syntax, ucs::variable_set &variables, hse::graph &g, tokenizer *tokens);
+hse::graph import_hse(const parse_astg::graph &syntax, ucs::variable_set &variables, tokenizer *tokens);
 
 // DOT
 
-hse::iterator import_graph(const parse_dot::node_id &syntax, map<string, hse::iterator> &nodes, ucs::variable_set &variables, hse::graph &g, tokenizer *token, bool define, bool squash_errors);
-map<string, string> import_graph(const parse_dot::attribute_list &syntax, tokenizer *tokens);
-void import_graph(const parse_dot::statement &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define);
-void import_graph(const parse_dot::graph &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define);
-hse::graph import_graph(const parse_dot::graph &syntax, ucs::variable_set &variables, tokenizer *tokens, bool auto_define);
+hse::iterator import_hse(const parse_dot::node_id &syntax, map<string, hse::iterator> &nodes, ucs::variable_set &variables, hse::graph &g, tokenizer *token, bool define, bool squash_errors);
+map<string, string> import_hse(const parse_dot::attribute_list &syntax, tokenizer *tokens);
+void import_hse(const parse_dot::statement &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define);
+void import_hse(const parse_dot::graph &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_dot::graph &syntax, ucs::variable_set &variables, tokenizer *tokens, bool auto_define);
 
 // HSE
 
-hse::graph import_graph(const parse_expression::expression &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
-hse::graph import_graph(const parse_expression::assignment &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
-hse::graph import_graph(const parse_chp::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
-hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_expression::expression &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_expression::assignment &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_chp::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
 
-#endif
+}

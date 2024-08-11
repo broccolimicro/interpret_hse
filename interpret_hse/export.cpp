@@ -7,6 +7,8 @@
 
 #include "export.h"
 
+namespace hse {
+
 pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, const hse::graph &g, hse::iterator pos, map<hse::iterator, pair<parse_astg::node, parse_astg::node> > &nodes, ucs::variable_set &variables, string tlabel, string plabel)
 {
 	map<hse::iterator, pair<parse_astg::node, parse_astg::node> >::iterator loc = nodes.find(pos);
@@ -104,8 +106,8 @@ parse_astg::graph export_astg(const hse::graph &g, ucs::variable_set &variables)
 	// Add the initial markings
 	for (int i = 0; i < (int)g.reset.size(); i++)
 	{
-		result.marking.push_back(pair<parse_expression::expression, vector<parse_astg::node> >());
-		result.marking.back().first = export_expression(g.reset[i].encodings, variables);
+		result.marking.push_back(pair<parse_expression::composition, vector<parse_astg::node> >());
+		result.marking.back().first = export_composition(g.reset[i].encodings, variables);
 		for (int j = 0; j < (int)g.reset[i].tokens.size(); j++)
 			result.marking.back().second.push_back(parse_astg::node("p" + to_string(g.reset[i].tokens[j].index)));
 	}
@@ -335,7 +337,7 @@ parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool ho
 	return result;
 }
 
-parse_chp::composition export_composition(boolean::cube c, ucs::variable_set &variables)
+parse_chp::composition export_parallel(boolean::cube c, ucs::variable_set &variables)
 {
 	parse_chp::composition result;
 	result.valid = true;
@@ -357,7 +359,7 @@ parse_chp::control export_control(boolean::cover c, ucs::variable_set &variables
 	result.deterministic = false;
 
 	for (int i = 0; i < (int)c.cubes.size(); i++)
-		result.branches.push_back(pair<parse_expression::expression, parse_chp::composition>(parse_expression::expression(), export_composition(c.cubes[i], variables)));
+		result.branches.push_back(pair<parse_expression::expression, parse_chp::composition>(parse_expression::expression(), export_parallel(c.cubes[i], variables)));
 
 	return result;
 }
@@ -389,7 +391,7 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 				if (vars.size() == 1)
 					result.branches.push_back(parse_chp::branch(export_assignment(vars[0], g.transitions[i[0].index].local_action.cubes[0].get(vars[0]), v)));
 				else
-					result.branches.push_back(parse_chp::branch(export_composition(g.transitions[i[0].index].local_action.cubes[0], v)));
+					result.branches.push_back(parse_chp::branch(export_parallel(g.transitions[i[0].index].local_action.cubes[0], v)));
 			}
 			else
 				result.branches.push_back(parse_chp::branch(export_control(g.transitions[i[0].index].local_action, v)));
@@ -912,4 +914,6 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 	}
 
 	return result;
+}
+
 }

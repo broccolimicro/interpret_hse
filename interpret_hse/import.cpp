@@ -8,7 +8,9 @@
 #include "import.h"
 #include <interpret_boolean/import.h>
 
-hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
+namespace hse {
+
+hse::iterator import_hse(const parse_astg::node &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
 {
 	hse::iterator i(-1,-1);
 	if (syntax.id.size() > 0) {
@@ -46,17 +48,17 @@ hse::iterator import_graph(const parse_astg::node &syntax, ucs::variable_set &va
 	return i;
 }
 
-void import_graph(const parse_astg::arc &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
+void import_hse(const parse_astg::arc &syntax, ucs::variable_set &variables, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
 {
-	hse::iterator base = import_graph(syntax.nodes[0], variables, g, ids, tokens);
+	hse::iterator base = import_hse(syntax.nodes[0], variables, g, ids, tokens);
 	for (int i = 1; i < (int)syntax.nodes.size(); i++)
 	{
-		hse::iterator next = import_graph(syntax.nodes[i], variables, g, ids, tokens);
+		hse::iterator next = import_hse(syntax.nodes[i], variables, g, ids, tokens);
 		g.connect(base, next);
 	}
 }
 
-hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &variables, tokenizer *tokens)
+hse::graph import_hse(const parse_astg::graph &syntax, ucs::variable_set &variables, tokenizer *tokens)
 {
 	hse::graph result;
 	map<string, hse::iterator> ids;
@@ -70,7 +72,7 @@ hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &vari
 		define_variables(syntax.internal[i], variables, 0, tokens, true, false);
 
 	for (int i = 0; i < (int)syntax.arcs.size(); i++)
-		import_graph(syntax.arcs[i], variables, result, ids, tokens);
+		import_hse(syntax.arcs[i], variables, result, ids, tokens);
 
 	for (int i = 0; i < (int)syntax.predicate.size(); i++)
 	{
@@ -108,7 +110,7 @@ hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &vari
 
 		for (int j = 0; j < (int)syntax.marking[i].second.size(); j++)
 		{
-			hse::iterator loc = import_graph(syntax.marking[i].second[j], variables, result, ids, tokens);
+			hse::iterator loc = import_hse(syntax.marking[i].second[j], variables, result, ids, tokens);
 			if (loc.type == hse::place::type && loc.index >= 0)
 				rst.tokens.push_back(loc.index);
 		}
@@ -116,7 +118,7 @@ hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &vari
 	}
 
 	for (int i = 0; i < (int)syntax.arbiter.size(); i++) {
-		hse::iterator loc = import_graph(syntax.arbiter[i], variables, result, ids, tokens);
+		hse::iterator loc = import_hse(syntax.arbiter[i], variables, result, ids, tokens);
 		if (loc.type == hse::place::type and loc.index >= 0) {
 			result.places[loc.index].arbiter = true;
 		}
@@ -125,7 +127,7 @@ hse::graph import_graph(const parse_astg::graph &syntax, ucs::variable_set &vari
 	return result;
 }
 
-hse::iterator import_graph(const parse_dot::node_id &syntax, map<string, hse::iterator> &nodes, ucs::variable_set &variables, hse::graph &g, tokenizer *tokens, bool define, bool squash_errors)
+hse::iterator import_hse(const parse_dot::node_id &syntax, map<string, hse::iterator> &nodes, ucs::variable_set &variables, hse::graph &g, tokenizer *tokens, bool define, bool squash_errors)
 {
 	if (syntax.valid && syntax.id.size() > 0)
 	{
@@ -191,7 +193,7 @@ hse::iterator import_graph(const parse_dot::node_id &syntax, map<string, hse::it
 		return hse::iterator();
 }
 
-map<string, string> import_graph(const parse_dot::attribute_list &syntax, tokenizer *tokens)
+map<string, string> import_hse(const parse_dot::attribute_list &syntax, tokenizer *tokens)
 {
 	map<string, string> result;
 	if (syntax.valid)
@@ -203,9 +205,9 @@ map<string, string> import_graph(const parse_dot::attribute_list &syntax, tokeni
 	return result;
 }
 
-void import_graph(const parse_dot::statement &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define)
+void import_hse(const parse_dot::statement &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define)
 {
-	map<string, string> attributes = import_graph(syntax.attributes, tokens);
+	map<string, string> attributes = import_hse(syntax.attributes, tokens);
 	map<string, string>::iterator attr;
 
 	if (syntax.statement_type == "attribute")
@@ -220,13 +222,13 @@ void import_graph(const parse_dot::statement &syntax, hse::graph &g, ucs::variab
 		{
 			vector<hse::iterator> n;
 			if (syntax.nodes[i]->is_a<parse_dot::node_id>())
-				n.push_back(import_graph(*(parse_dot::node_id*)syntax.nodes[i], nodes, variables, g, tokens, (syntax.statement_type == "node"), auto_define));
+				n.push_back(import_hse(*(parse_dot::node_id*)syntax.nodes[i], nodes, variables, g, tokens, (syntax.statement_type == "node"), auto_define));
 			else if (syntax.nodes[i]->is_a<parse_dot::graph>())
 			{
 				map<string, map<string, string> > sub_globals = globals;
 				for (attr = attributes.begin(); attr != attributes.end(); attr++)
 					sub_globals[syntax.statement_type][attr->first] = attr->second;
-				import_graph(*(parse_dot::graph*)syntax.nodes[i], g, variables, sub_globals, nodes, tokens, auto_define);
+				import_hse(*(parse_dot::graph*)syntax.nodes[i], g, variables, sub_globals, nodes, tokens, auto_define);
 			}
 
 			attr = attributes.find("label");
@@ -290,25 +292,25 @@ void import_graph(const parse_dot::statement &syntax, hse::graph &g, ucs::variab
 	}
 }
 
-void import_graph(const parse_dot::graph &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define)
+void import_hse(const parse_dot::graph &syntax, hse::graph &g, ucs::variable_set &variables, map<string, map<string, string> > &globals, map<string, hse::iterator> &nodes, tokenizer *tokens, bool auto_define)
 {
 	if (syntax.valid)
 		for (int i = 0; i < (int)syntax.statements.size(); i++)
-			import_graph(syntax.statements[i], g, variables, globals, nodes, tokens, auto_define);
+			import_hse(syntax.statements[i], g, variables, globals, nodes, tokens, auto_define);
 }
 
-hse::graph import_graph(const parse_dot::graph &syntax, ucs::variable_set &variables, tokenizer *tokens, bool auto_define)
+hse::graph import_hse(const parse_dot::graph &syntax, ucs::variable_set &variables, tokenizer *tokens, bool auto_define)
 {
 	hse::graph result;
 	map<string, map<string, string> > globals;
 	map<string, hse::iterator> nodes;
 	if (syntax.valid)
 		for (int i = 0; i < (int)syntax.statements.size(); i++)
-			import_graph(syntax.statements[i], result, variables, globals, nodes, tokens, auto_define);
+			import_hse(syntax.statements[i], result, variables, globals, nodes, tokens, auto_define);
 	return result;
 }
 
-hse::graph import_graph(const parse_expression::expression &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
+hse::graph import_hse(const parse_expression::expression &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
@@ -323,7 +325,7 @@ hse::graph import_graph(const parse_expression::expression &syntax, ucs::variabl
 	return result;
 }
 
-hse::graph import_graph(const parse_expression::assignment &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
+hse::graph import_hse(const parse_expression::assignment &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
@@ -338,7 +340,7 @@ hse::graph import_graph(const parse_expression::assignment &syntax, ucs::variabl
 	return result;
 }
 
-hse::graph import_graph(const parse_chp::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
+hse::graph import_hse(const parse_chp::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
 	if (syntax.region != "")
 		default_id = atoi(syntax.region.c_str());
@@ -354,11 +356,11 @@ hse::graph import_graph(const parse_chp::composition &syntax, ucs::variable_set 
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		if (syntax.branches[i].sub.valid)
-			result.merge(composition, import_graph(syntax.branches[i].sub, variables, default_id, tokens, auto_define));
+			result.merge(composition, import_hse(syntax.branches[i].sub, variables, default_id, tokens, auto_define));
 		else if (syntax.branches[i].ctrl.valid)
-			result.merge(composition, import_graph(syntax.branches[i].ctrl, variables, default_id, tokens, auto_define));
+			result.merge(composition, import_hse(syntax.branches[i].ctrl, variables, default_id, tokens, auto_define));
 		else if (syntax.branches[i].assign.valid)
-			result.merge(composition, import_graph(syntax.branches[i].assign, variables, default_id, tokens, auto_define));
+			result.merge(composition, import_hse(syntax.branches[i].assign, variables, default_id, tokens, auto_define));
 
 		if (syntax.reset == 0 && i == 0)
 			result.reset = result.source;
@@ -369,7 +371,7 @@ hse::graph import_graph(const parse_chp::composition &syntax, ucs::variable_set 
 	return result;
 }
 
-hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
+hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
 {
 	if (syntax.region != "")
 		default_id = atoi(syntax.region.c_str());
@@ -380,9 +382,9 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 	{
 		hse::graph branch;
 		if (syntax.branches[i].first.valid && import_cover(syntax.branches[i].first, variables, default_id, tokens, auto_define) != 1)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].first, variables, default_id, tokens, auto_define));
+			branch.merge(hse::sequence, import_hse(syntax.branches[i].first, variables, default_id, tokens, auto_define));
 		if (syntax.branches[i].second.valid)
-			branch.merge(hse::sequence, import_graph(syntax.branches[i].second, variables, default_id, tokens, auto_define));
+			branch.merge(hse::sequence, import_hse(syntax.branches[i].second, variables, default_id, tokens, auto_define));
 
 		result.merge(hse::choice, branch);
 	}
@@ -483,4 +485,6 @@ hse::graph import_graph(const parse_chp::control &syntax, ucs::variable_set &var
 	}
 
 	return result;
+}
+
 }
