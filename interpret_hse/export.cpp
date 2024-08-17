@@ -829,47 +829,47 @@ parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable
 
 string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_set &v)
 {
-	vector<petri::iterator> n = g.next(i);
-	vector<petri::iterator> p = g.prev(i);
-	string result = "";
-
-	if (i.type == hse::transition::type)
-	{
-		vector<petri::iterator> pp = g.prev(p);
-		vector<petri::iterator> nn = g.next(n);
-
-		sort(pp.begin(), pp.end());
-		pp.resize(unique(pp.begin(), pp.end()) - pp.begin());
-		sort(nn.begin(), nn.end());
-		nn.resize(unique(nn.begin(), nn.end()) - nn.begin());
-
-		n = nn;
-		p = pp;
+	vector<petri::iterator> n, p;
+	if (i.type == hse::place::type) {
+		p.push_back(i);
+		n.push_back(i);
+	} else {
+		p = g.prev(i);
+		n = g.next(i);
 	}
 
-	if (p.size() > 1)
+	string result = "";
+
+	if (p.size() > 1) {
+		result += "(...";
+	}
+	for (int j = 0; j < (int)p.size(); j++)
 	{
-		result = "[...";
-		for (int j = 0; j < (int)p.size(); j++)
-		{
+		if (j != 0)
+			result += "||...";
+
+		vector<petri::iterator> pp = g.prev(p[j]);
+		if (pp.size() > 1) {
+			result += "[...";
+		}
+		for (int j = 0; j < (int)pp.size(); j++) {
 			if (j != 0)
 				result += "[]...";
 
-			if (!g.transitions[p[j].index].guard.is_tautology())
-				result += "[" + export_expression_xfactor(g.transitions[p[j].index].guard, v).to_string() + "]; ";
+			if (!g.transitions[pp[j].index].guard.is_tautology())
+				result += "[" + export_expression_xfactor(g.transitions[pp[j].index].guard, v).to_string() + "]; ";
 			
-			result += export_composition(g.transitions[p[j].index].local_action, v).to_string();
+			result += export_composition(g.transitions[pp[j].index].local_action, v).to_string();
 		}
-		result += "]";
+		if (pp.size() > 1) {
+			result += "]";
+		}
 	}
-	else if (p.size() == 1) {
-		result = "";
-		if (!g.transitions[p[0].index].guard.is_tautology()) {
-			result += "[" + export_expression_xfactor(g.transitions[p[0].index].guard, v).to_string() + "];";
-		}
+	if (p.size() > 1) {
+		result += ")";
+	}
 
-		result +=  export_composition(g.transitions[p[0].index].local_action, v).to_string();
-	}
+
 
 	if (i.type == hse::place::type) {
 		result += "; <here> ";
@@ -883,34 +883,37 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 		result +=  export_composition(g.transitions[i.index].local_action, v).to_string() + ";";
 	}
 
-	if (n.size() > 1)
+
+
+	if (n.size() > 1) {
+		result += "(";
+	}
+	for (int j = 0; j < (int)n.size(); j++)
 	{
-		result += "[";
-		for (int j = 0; j < (int)n.size(); j++)
-		{
+		if (j != 0)
+			result += "...||";
+
+		vector<petri::iterator> nn = g.next(n[j]);
+		if (nn.size() > 1) {
+			result += "[";
+		}
+		for (int j = 0; j < (int)nn.size(); j++) {
 			if (j != 0)
-				result += "[]";
+				result += "...[]";
 
-			if (n[j] == i)
-				result += " ";
-
-			if (!g.transitions[n[j].index].guard.is_tautology())
-				result += export_expression_xfactor(g.transitions[n[j].index].guard, v).to_string() + "->";
+			if (!g.transitions[nn[j].index].guard.is_tautology())
+				result += export_expression_xfactor(g.transitions[nn[j].index].guard, v).to_string() + "->";
 			else
 				result += "1->";
-
-			result += export_composition(g.transitions[n[j].index].local_action, v).to_string() + "...";
-
-			if (n[j] == i)
-				result += " ";
+			
+			result += export_composition(g.transitions[nn[j].index].local_action, v).to_string();
 		}
-		result += "]";
+		if (nn.size() > 1) {
+			result += "...]";
+		}
 	}
-	else if (n.size() == 1) {
-		if (!g.transitions[n[0].index].guard.is_tautology()) {
-			result += "[" + export_expression_xfactor(g.transitions[n[0].index].guard, v).to_string() + "];";
-		}
-		result += export_composition(g.transitions[n[0].index].local_action, v).to_string();
+	if (n.size() > 1) {
+		result += "...)";
 	}
 
 	return result;
