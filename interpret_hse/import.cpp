@@ -368,6 +368,17 @@ hse::graph import_hse(const parse_chp::composition &syntax, ucs::variable_set &v
 			result.reset = result.sink;
 	}
 
+	if (syntax.branches.size() == 0)
+	{
+		petri::iterator b = result.create(hse::place());
+
+		result.source.push_back(hse::state(vector<hse::token>(1, hse::token(b.index)), boolean::cube()));
+		result.sink.push_back(hse::state(vector<hse::token>(1, hse::token(b.index)), boolean::cube()));
+
+		if (syntax.reset >= 0)
+			result.reset = result.source;
+	}
+
 	return result;
 }
 
@@ -381,7 +392,7 @@ hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &varia
 	for (int i = 0; i < (int)syntax.branches.size(); i++)
 	{
 		hse::graph branch;
-		if (syntax.branches[i].first.valid && import_cover(syntax.branches[i].first, variables, default_id, tokens, auto_define) != 1)
+		if (syntax.branches[i].first.valid and import_cover(syntax.branches[i].first, variables, default_id, tokens, auto_define) != 1)
 			branch.merge(hse::sequence, import_hse(syntax.branches[i].first, variables, default_id, tokens, auto_define));
 		if (syntax.branches[i].second.valid)
 			branch.merge(hse::sequence, import_hse(syntax.branches[i].second, variables, default_id, tokens, auto_define));
