@@ -40,7 +40,7 @@ hse::iterator import_hse(const parse_astg::node &syntax, ucs::variable_set &vari
 			action = import_cover(syntax.assign, variables, 0, tokens, false);
 		}
 		
-		g.create_at(hse::transition(guard, action), i.index);
+		g.create_at(hse::transition(1, guard, action), i.index);
 	} else if (created.second) {
 		g.create_at(hse::place(), i.index);
 	}
@@ -310,11 +310,18 @@ hse::graph import_hse(const parse_dot::graph &syntax, ucs::variable_set &variabl
 	return result;
 }
 
-hse::graph import_hse(const parse_expression::expression &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define)
+hse::graph import_hse(const parse_expression::expression &syntax, ucs::variable_set &variables, bool assume, int default_id, tokenizer *tokens, bool auto_define)
 {
+	hse::transition n;
+	if (assume) {
+		n.assume = import_cover(syntax, variables, default_id, tokens, auto_define);
+	} else {
+		n.guard = import_cover(syntax, variables, default_id, tokens, auto_define);
+	}
+
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
-	hse::iterator t = result.create(hse::transition(import_cover(syntax, variables, default_id, tokens, auto_define)));
+	hse::iterator t = result.create(n);
 	hse::iterator e = result.create(hse::place());
 
 	result.connect(b, t);
@@ -329,7 +336,7 @@ hse::graph import_hse(const parse_expression::assignment &syntax, ucs::variable_
 {
 	hse::graph result;
 	hse::iterator b = result.create(hse::place());
-	hse::iterator t = result.create(hse::transition(1, import_cover(syntax, variables, default_id, tokens, auto_define)));
+	hse::iterator t = result.create(hse::transition(1, 1, import_cover(syntax, variables, default_id, tokens, auto_define)));
 	hse::iterator e = result.create(hse::place());
 
 	result.connect(b, t);
@@ -393,14 +400,14 @@ hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &varia
 	{
 		hse::graph branch;
 		if (syntax.branches[i].first.valid and import_cover(syntax.branches[i].first, variables, default_id, tokens, auto_define) != 1)
-			branch.merge(hse::sequence, import_hse(syntax.branches[i].first, variables, default_id, tokens, auto_define));
+			branch.merge(hse::sequence, import_hse(syntax.branches[i].first, variables, syntax.assume, default_id, tokens, auto_define));
 		if (syntax.branches[i].second.valid)
 			branch.merge(hse::sequence, import_hse(syntax.branches[i].second, variables, default_id, tokens, auto_define));
 
 		result.merge(hse::choice, branch);
 	}
 
-	if ((!syntax.deterministic || syntax.repeat) && syntax.branches.size() > 0)
+	if ((not syntax.deterministic or syntax.repeat) and not syntax.branches.empty())
 	{
 		hse::iterator sm = result.create(hse::place());
 		for (int i = 0; i < (int)result.source.size(); i++)
@@ -419,6 +426,7 @@ hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &varia
 				result.connect(result.prev(loc), sm);
 				result.connect(sm, result.next(loc));
 				result.places[sm.index].arbiter = (result.places[sm.index].arbiter or result.places[loc.index].arbiter);
+				result.places[sm.index].synchronizer = (result.places[sm.index].synchronizer or result.places[loc.index].synchronizer);
 				result.erase(loc);
 				if (sm.index > loc.index)
 					sm.index--;
@@ -429,10 +437,17 @@ hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &varia
 		result.source.push_back(hse::state(vector<petri::token>(1, petri::token(sm.index)), boolean::cube(1)));
 	}
 
-	if (!syntax.deterministic)
-		for (int i = 0; i < (int)result.source.size(); i++)
-			for (int j = 0; j < (int)result.source[i].tokens.size(); j++)
-				result.places[result.source[i].tokens[j].index].arbiter = true;
+	if (not syntax.deterministic) {
+		for (int i = 0; i < (int)result.source.size(); i++) {
+			for (int j = 0; j < (int)result.source[i].tokens.size(); j++) {
+				if (not syntax.stable) {
+					result.places[result.source[i].tokens[j].index].synchronizer = true;
+				} else {
+					result.places[result.source[i].tokens[j].index].arbiter = true;
+				}
+			}
+		}
+	}
 
 	if (syntax.repeat && syntax.branches.size() > 0)
 	{
@@ -453,6 +468,7 @@ hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &varia
 				result.connect(result.prev(loc), sm);
 				result.connect(sm, result.next(loc));
 				result.places[sm.index].arbiter = (result.places[sm.index].arbiter or result.places[loc.index].arbiter);
+				result.places[sm.index].synchronizer = (result.places[sm.index].synchronizer or result.places[loc.index].synchronizer);
 				result.erase(loc);
 				if (sm.index > loc.index)
 					sm.index--;
@@ -480,7 +496,7 @@ hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &varia
 
 		if (!repeat.is_null())
 		{
-			hse::iterator guard = result.create(hse::transition(repeat));
+			hse::iterator guard = result.create(hse::transition(1, repeat));
 			result.connect(sm, guard);
 			hse::iterator arrow = result.create(hse::place());
 			result.connect(guard, arrow);

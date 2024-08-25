@@ -40,7 +40,7 @@ hse::graph import_hse(const parse_dot::graph &syntax, ucs::variable_set &variabl
 
 // HSE
 
-hse::graph import_hse(const parse_expression::expression &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_expression::expression &syntax, ucs::variable_set &variables, bool assume, int default_id, tokenizer *tokens, bool auto_define);
 hse::graph import_hse(const parse_expression::assignment &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
 hse::graph import_hse(const parse_chp::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
 hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
