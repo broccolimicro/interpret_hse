@@ -132,7 +132,7 @@ parse_dot::node_id export_node_id(const petri::iterator &i)
 	return result;
 }
 
-parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, ucs::variable_set &variables, bool labels, bool notations, int encodings)
+parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, ucs::variable_set &variables, bool labels, bool notations, bool ghost, int encodings)
 {
 	parse_dot::attribute_list result;
 	result.valid = true;
@@ -205,9 +205,19 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 		encoding.valid = true;
 		encoding.first = "label";
 		if (encodings == 0) {
-			encoding.second = line_wrap(export_expression_hfactor(g.places[i.index].predicate, variables).to_string(), 80);
+			boolean::cover exp = g.places[i.index].predicate;
+			if (not ghost) {
+				exp.hide(g.ghost_nets);
+				exp.minimize();
+			}
+			encoding.second = line_wrap(export_expression_hfactor(exp, variables).to_string(), 80);
 		} else if (encodings > 0) {
-			encoding.second = line_wrap(export_expression_hfactor(g.places[i.index].effective, variables).to_string(), 80);
+			boolean::cover exp = g.places[i.index].effective;
+			if (not ghost) {
+				exp.hide(g.ghost_nets);
+				exp.minimize();
+			}
+			encoding.second = line_wrap(export_expression_hfactor(exp, variables).to_string(), 80);
 		} else {
 			encoding.second = "";
 		}
@@ -276,17 +286,17 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 	return result;
 }
 
-parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, ucs::variable_set &v, bool labels, bool notations, int encodings)
+parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, ucs::variable_set &v, bool labels, bool notations, bool ghost, int encodings)
 {
 	parse_dot::statement result;
 	result.valid = true;
 	result.statement_type = "node";
 	result.nodes.push_back(new parse_dot::node_id(export_node_id(i)));
-	result.attributes = export_attribute_list(i, g, v, labels, notations, encodings);
+	result.attributes = export_attribute_list(i, g, v, labels, notations, ghost, encodings);
 	return result;
 }
 
-parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph &g, ucs::variable_set &v, bool labels, bool notations, int encodings)
+parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph &g, ucs::variable_set &v, bool labels)
 {
 	parse_dot::statement result;
 	result.valid = true;
@@ -309,7 +319,7 @@ parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph 
 	return result;
 }
 
-parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool horiz, bool labels, bool notations, int encodings)
+parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool horiz, bool labels, bool notations, bool ghost, int encodings)
 {
 	parse_dot::graph result;
 	result.valid = true;
@@ -325,14 +335,14 @@ parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool ho
 	}
 
 	for (int i = 0; i < (int)g.places.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, v, labels, notations, encodings));
+		result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, v, labels, notations, ghost, encodings));
 
 	for (int i = 0; i < (int)g.transitions.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, v, labels, notations, encodings));
+		result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, v, labels, notations, ghost, encodings));
 
 	for (int i = 0; i < 2; i++)
 		for (int j = 0; j < (int)g.arcs[i].size(); j++)
-			result.statements.push_back(export_statement(pair<int, int>(i, j), g, v, labels, notations, encodings));
+			result.statements.push_back(export_statement(pair<int, int>(i, j), g, v, labels));
 
 	return result;
 }
