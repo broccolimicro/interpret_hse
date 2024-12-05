@@ -19,6 +19,9 @@
 #include <parse_chp/composition.h>
 #include <parse_chp/control.h>
 
+#include <parse_cog/composition.h>
+#include <parse_cog/control.h>
+
 #include <parse_expression/expression.h>
 #include <parse_expression/assignment.h>
 
@@ -44,5 +47,11 @@ hse::graph import_hse(const parse_expression::expression &syntax, ucs::variable_
 hse::graph import_hse(const parse_expression::assignment &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
 hse::graph import_hse(const parse_chp::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
 hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+
+// HSE
+
+hse::graph import_hse(const parse_cog::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_cog::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+
 
 }
