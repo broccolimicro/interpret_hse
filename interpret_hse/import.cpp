@@ -522,7 +522,7 @@ hse::graph import_hse(const parse_cog::composition &syntax, ucs::variable_set &v
 	bool synchronizer = false;
 
 	int composition = hse::parallel;
-	if (syntax.level == parse_cog::composition::SEQUENCE) {
+	if (syntax.level == parse_cog::composition::SEQUENCE or syntax.level == parse_cog::composition::INTERNAL_SEQUENCE) {
 		composition = hse::sequence;
 	} else if (syntax.level == parse_cog::composition::CONDITION) {
 		composition = hse::choice;
@@ -599,8 +599,7 @@ hse::graph import_hse(const parse_cog::composition &syntax, ucs::variable_set &v
 	}*/
 
 	if (result.source.size() > 1 and composition == choice) {
-		petri::iterator b = result.consolidate(result.source);
-		result.source = vector<hse::state>(1, hse::state(vector<hse::token>(1, hse::token(b.index)), boolean::cube(1)));
+		result.source = result.consolidate(result.source);
 	}
 
 	if ((arbiter or synchronizer) and (int)syntax.branches.size() > 1) {
@@ -687,7 +686,7 @@ hse::graph import_hse(const parse_cog::control &syntax, ucs::variable_set &varia
 	}
 
 	if (syntax.kind == "while" and not result.source.empty()) {
-		hse::iterator sm = result.consolidate(result.sink, hse::iterator(hse::place::type, result.source[0].tokens[0].index), true);
+		result.consolidate(result.sink, result.source, true);
 
 		result.sink.clear();
 		if (result.reset.size() > 0) {
