@@ -50,7 +50,7 @@ hse::graph import_hse(const parse_chp::control &syntax, ucs::variable_set &varia
 
 // HSE
 
-hse::graph import_hse(const parse_cog::composition &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
+hse::graph import_hse(const parse_cog::composition &syntax, ucs::variable_set &variables, boolean::cover &covered, bool &hasRepeat, int default_id, tokenizer *tokens, bool auto_define);
 hse::graph import_hse(const parse_cog::control &syntax, ucs::variable_set &variables, int default_id, tokenizer *tokens, bool auto_define);
 
 

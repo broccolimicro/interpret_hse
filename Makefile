@@ -1,5 +1,5 @@
 NAME          = interpret_hse
-DEPEND        = interpret_boolean interpret_ucs parse_expression parse_ucs parse_dot parse_astg parse_chp petri hse ucs boolean parse common
+DEPEND        = interpret_boolean interpret_ucs parse_expression parse_ucs parse_dot parse_cog parse_astg parse_chp petri hse ucs boolean parse common
 
 SRCDIR        = $(NAME)
 TESTDIR       = tests
