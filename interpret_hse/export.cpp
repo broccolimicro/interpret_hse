@@ -122,6 +122,17 @@ parse_astg::graph export_astg(const hse::graph &g, ucs::variable_set &variables)
 	return result;
 }
 
+void export_astg(string path, const hse::graph &g, ucs::variable_set &variables) {
+	FILE *fout = stdout;
+	if (path != "") {
+		fout = fopen(path.c_str(), "w");
+	}
+	fprintf(fout, "%s", export_astg(g, variables).to_string().c_str());
+	if (fout != stdout) {
+		fclose(fout);
+	}
+}
+
 // DOT
 
 parse_dot::node_id export_node_id(const petri::iterator &i)
