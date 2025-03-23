@@ -1,392 +1,11 @@
-/*
- * export.cpp
- *
- *  Created on: Feb 6, 2015
- *      Author: nbingham
- */
+#include "export_chp.h"
+#include "export_expr.h"
 
-#include "export.h"
+#include <interpret_boolean/export.h>
 
 namespace hse {
 
-pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, const hse::graph &g, hse::iterator pos, map<hse::iterator, pair<parse_astg::node, parse_astg::node> > &nodes, ucs::variable_set &variables, string tlabel, string plabel)
-{
-	map<hse::iterator, pair<parse_astg::node, parse_astg::node> >::iterator loc = nodes.find(pos);
-	if (loc == nodes.end()) {
-		if (pos.type == hse::transition::type) {
-			pair<parse_astg::node, parse_astg::node> inout;
-
-			parse_expression::expression guard = export_expression(g.transitions[pos.index].guard, variables);
-			parse_expression::composition action = export_composition(g.transitions[pos.index].local_action, variables);
-			inout.first = parse_astg::node(guard, action, tlabel);
-			inout.second = inout.first;
-
-			loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
-		} else {
-			pair<parse_astg::node, parse_astg::node> inout;
-			inout.first = parse_astg::node("p" + plabel);
-			inout.second = inout.first;
-
-			loc = nodes.insert(pair<hse::iterator, pair<parse_astg::node, parse_astg::node> >(pos, inout)).first;
-		}
-	}
-
-	return loc->second;
-}
-
-parse_astg::graph export_astg(const hse::graph &g, ucs::variable_set &variables)
-{
-	parse_astg::graph result;
-
-	result.name = "hse";
-
-	// Add the variables
-	for (int i = 0; i < (int)variables.nodes.size(); i++)
-		result.internal.push_back(export_variable_name(i, variables));
-
-	// Add the predicates and effective predicates
-	for (int i = 0; i < (int)g.places.size(); i++)
-	{
-		if (!g.places[i].predicate.is_null())
-			result.predicate.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), export_expression(g.places[i].predicate, variables)));
-
-		if (!g.places[i].effective.is_null())
-			result.effective.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), export_expression(g.places[i].effective, variables)));
-	}
-
-	// Add the arcs
-	map<hse::iterator, pair<parse_astg::node, parse_astg::node> > nodes;
-	vector<int> forks;
-	for (int i = 0; i < (int)g.transitions.size(); i++)
-	{
-		int curr = result.arcs.size();
-		result.arcs.push_back(parse_astg::arc());
-		pair<parse_astg::node, parse_astg::node> t0 = export_astg(result, g, hse::iterator(hse::transition::type, i), nodes, variables, to_string(i), to_string(i));
-		result.arcs[curr].nodes.push_back(t0.second);
-
-		vector<int> n = g.next(hse::transition::type, i);
-
-
-		for (int j = 0; j < (int)n.size(); j++)
-		{
-			vector<int> nn = g.next(hse::place::type, n[j]);
-			vector<int> pn = g.prev(hse::place::type, n[j]);
-
-			bool is_reset = false;
-			for (int k = 0; k < (int)g.reset.size() && !is_reset; k++)
-				for (int l = 0; l < (int)g.reset[k].tokens.size() && !is_reset; l++)
-					if (n[j] == g.reset[k].tokens[l].index)
-						is_reset = true;
-
-			pair<parse_astg::node, parse_astg::node> p1 = export_astg(result, g, hse::iterator(hse::place::type, n[j]), nodes, variables, to_string(n[j]), to_string(n[j]));
-			result.arcs[curr].nodes.push_back(p1.second);
-			forks.push_back(n[j]);
-		}
-	}
-
-	sort(forks.begin(), forks.end());
-	forks.resize(unique(forks.begin(), forks.end()) - forks.begin());
-
-	for (int i = 0; i < (int)forks.size(); i++)
-	{
-		int curr = result.arcs.size();
-		result.arcs.push_back(parse_astg::arc());
-		pair<parse_astg::node, parse_astg::node> p0 = export_astg(result, g, hse::iterator(hse::place::type, forks[i]), nodes, variables, to_string(forks[i]), to_string(forks[i]));
-		result.arcs[curr].nodes.push_back(p0.second);
-
-		vector<int> n = g.next(hse::place::type, forks[i]);
-
-		for (int j = 0; j < (int)n.size(); j++)
-		{
-			pair<parse_astg::node, parse_astg::node> t1 = export_astg(result, g, hse::iterator(hse::transition::type, n[j]), nodes, variables, to_string(n[j]), to_string(n[j]));
-			result.arcs[curr].nodes.push_back(t1.second);
-		}
-	}
-
-	// Add the initial markings
-	for (int i = 0; i < (int)g.reset.size(); i++)
-	{
-		result.marking.push_back(pair<parse_expression::composition, vector<parse_astg::node> >());
-		result.marking.back().first = export_composition(g.reset[i].encodings, variables);
-		for (int j = 0; j < (int)g.reset[i].tokens.size(); j++)
-			result.marking.back().second.push_back(parse_astg::node("p" + to_string(g.reset[i].tokens[j].index)));
-	}
-
-	// Add the arbiters
-	for (int i = 0; i < (int)g.places.size(); i++) {
-		if (g.places[i].arbiter) {
-			result.arbiter.push_back(parse_astg::node("p" + to_string(i)));
-		}
-	}
-
-	return result;
-}
-
-void export_astg(string path, const hse::graph &g, ucs::variable_set &variables) {
-	FILE *fout = stdout;
-	if (path != "") {
-		fout = fopen(path.c_str(), "w");
-	}
-	fprintf(fout, "%s", export_astg(g, variables).to_string().c_str());
-	if (fout != stdout) {
-		fclose(fout);
-	}
-}
-
-// DOT
-
-parse_dot::node_id export_node_id(const petri::iterator &i)
-{
-	parse_dot::node_id result;
-	result.valid = true;
-	result.id = (i.type == hse::transition::type ? "T" : "P") + ::to_string(i.index);
-	return result;
-}
-
-parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, ucs::variable_set &variables, bool labels, bool notations, bool ghost, int encodings)
-{
-	parse_dot::attribute_list result;
-	result.valid = true;
-	parse_dot::assignment_list sub_result;
-	sub_result.valid = true;
-
-	if (i.type == hse::place::type) {
-		parse_dot::assignment shape;
-		shape.valid = true;
-		shape.first = "shape";
-		if (encodings >= 0) {
-			if (g.places[i.index].arbiter) {
-				shape.second = "rectangle";
-			} else {
-				shape.second = "ellipse";
-			}
-		} else {
-			if (g.places[i.index].arbiter) {
-				shape.second = "square";
-			} else {
-				shape.second = "circle";
-			}
-		}
-		sub_result.as.push_back(shape);
-
-		bool is_reset = false;
-		for (int j = 0; j < (int)g.reset.size() && !is_reset; j++) {
-			for (int k = 0; k < (int)g.reset[j].tokens.size() && !is_reset; k++) {
-				if (i.index == g.reset[j].tokens[k].index) {
-					is_reset = true;
-				}
-			}
-		}
-
-		if (is_reset) {
-			parse_dot::assignment marked;
-			marked.valid = true;
-			marked.first = "style";
-			marked.second = "filled";
-
-			sub_result.as.push_back(marked);
-			if (encodings < 0 && !notations) {
-				parse_dot::assignment color;
-				color.valid = true;
-				color.first = "fillcolor";
-				color.second = "black";
-				sub_result.as.push_back(color);
-
-				parse_dot::assignment peripheries;
-				peripheries.valid = true;
-				peripheries.first = "peripheries";
-				peripheries.second = "2";
-				sub_result.as.push_back(peripheries);
-
-				parse_dot::assignment size;
-				size.valid = true;
-				size.first = "width";
-				size.second = "0.15";
-				sub_result.as.push_back(size);
-			}
-		} else if (encodings < 0) {
-			parse_dot::assignment size;
-			size.valid = true;
-			size.first = "width";
-			size.second = "0.18";
-			sub_result.as.push_back(size);
-		}
-
-		parse_dot::assignment encoding;
-		encoding.valid = true;
-		encoding.first = "label";
-		if (encodings == 0) {
-			boolean::cover exp = g.places[i.index].predicate;
-			if (not ghost) {
-				exp.hide(g.ghost_nets);
-				exp.minimize();
-			}
-			encoding.second = line_wrap(export_expression_hfactor(exp, variables).to_string(), 80);
-		} else if (encodings > 0) {
-			boolean::cover exp = g.places[i.index].effective;
-			if (not ghost) {
-				exp.hide(g.ghost_nets);
-				exp.minimize();
-			}
-			encoding.second = line_wrap(export_expression_hfactor(exp, variables).to_string(), 80);
-		} else {
-			encoding.second = "";
-		}
-
-		if (notations) {
-			if (encoding.second != "") {
-				encoding.second += "\n";
-			}
-			encoding.second += "[";
-			for (int j = 0; j < (int)g.places[i.index].splits[petri::parallel].size(); j++) {
-				if (j != 0) {
-					encoding.second += ",";
-				}
-				encoding.second += g.places[i.index].splits[petri::parallel][j].to_string();
-			}
-			encoding.second += "]";
-		}
-		sub_result.as.push_back(encoding);
-	} else {
-		parse_dot::assignment plaintext;
-		plaintext.valid = true;
-		plaintext.first = "shape";
-		plaintext.second = "plaintext";
-		sub_result.as.push_back(plaintext);
-
-		parse_dot::assignment action;
-		action.valid = true;
-		action.first = "label";
-		bool g_vacuous = g.transitions[i.index].guard.is_tautology();
-		bool a_vacuous = g.transitions[i.index].local_action.is_tautology();
-
-		if (!g_vacuous && !a_vacuous) {
-			action.second = export_expression_xfactor(g.transitions[i.index].guard, variables).to_string() + " -> " +
-			                export_composition(g.transitions[i.index].local_action, variables).to_string();
-		} else if (!g_vacuous) {
-			action.second = "[" + export_expression_xfactor(g.transitions[i.index].guard, variables).to_string() + "]";
-		} else {
-			action.second = export_composition(g.transitions[i.index].local_action, variables).to_string();
-		}
-
-		if (notations) {
-			if (action.second != "") {
-				action.second += "\n";
-			}
-			action.second += "[";
-			for (int j = 0; j < (int)g.transitions[i.index].splits[petri::parallel].size(); j++) {
-				if (j != 0) {
-					action.second += ",";
-				}
-				action.second += g.transitions[i.index].splits[petri::parallel][j].to_string();
-			}
-			action.second += "]";
-		}
-		sub_result.as.push_back(action);
-	}
-
-	if (labels) {
-		parse_dot::assignment label;
-		label.valid = true;
-		label.first = "xlabel";
-		label.second = (i.type == hse::place::type ? "P" : "T") + to_string(i.index);
-		sub_result.as.push_back(label);
-	}
-
-	result.attributes.push_back(sub_result);
-	return result;
-}
-
-parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, ucs::variable_set &v, bool labels, bool notations, bool ghost, int encodings)
-{
-	parse_dot::statement result;
-	result.valid = true;
-	result.statement_type = "node";
-	result.nodes.push_back(new parse_dot::node_id(export_node_id(i)));
-	result.attributes = export_attribute_list(i, g, v, labels, notations, ghost, encodings);
-	return result;
-}
-
-parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph &g, ucs::variable_set &v, bool labels)
-{
-	parse_dot::statement result;
-	result.valid = true;
-	result.statement_type = "edge";
-	result.nodes.push_back(new parse_dot::node_id(export_node_id(g.arcs[a.first][a.second].from)));
-	result.nodes.push_back(new parse_dot::node_id(export_node_id(g.arcs[a.first][a.second].to)));
-	parse_dot::assignment_list attr;
-	attr.valid = true;
-	parse_dot::assignment label;
-	label.valid = true;
-	label.first = "xlabel";
-	label.second = "A" + to_string(a.first) + "." + to_string(a.second);
-	attr.as.push_back(label);
-	if (labels)
-	{
-		result.attributes.valid = true;
-		result.attributes.attributes.push_back(attr);
-	}
-
-	return result;
-}
-
-parse_dot::graph export_graph(const hse::graph &g, ucs::variable_set &v, bool horiz, bool labels, bool notations, bool ghost, int encodings)
-{
-	parse_dot::graph result;
-	result.valid = true;
-	result.id = "hse";
-	result.type = "digraph";
-
-	if (horiz) {
-		parse_dot::assignment as;
-		as.valid = true;
-		as.first = "rankdir";
-		as.second = "LR";
-		result.attributes.push_back(as);
-	}
-
-	for (int i = 0; i < (int)g.places.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, v, labels, notations, ghost, encodings));
-
-	for (int i = 0; i < (int)g.transitions.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, v, labels, notations, ghost, encodings));
-
-	for (int i = 0; i < 2; i++)
-		for (int j = 0; j < (int)g.arcs[i].size(); j++)
-			result.statements.push_back(export_statement(pair<int, int>(i, j), g, v, labels));
-
-	return result;
-}
-
-parse_chp::composition export_parallel(boolean::cube c, ucs::variable_set &variables)
-{
-	parse_chp::composition result;
-	result.valid = true;
-
-	result.level = 2;//parse_expression::composition::get_level(",");
-
-	for (int i = 0; i < (int)variables.nodes.size(); i++)
-		if (c.get(i) != 2)
-			result.branches.push_back(export_assignment(i, c.get(i), variables));
-
-	return result;
-}
-
-parse_chp::control export_control(boolean::cover c, ucs::variable_set &variables)
-{
-	parse_chp::control result;
-	result.valid = true;
-
-	result.deterministic = false;
-
-	for (int i = 0; i < (int)c.cubes.size(); i++)
-		result.branches.push_back(pair<parse_expression::expression, parse_chp::composition>(parse_expression::expression(), export_parallel(c.cubes[i], variables)));
-
-	return result;
-}
-
-
-parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v)
+parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::graph &g)
 {
 	parse_chp::composition result;
 	result.valid = true;
@@ -402,7 +21,7 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 				parse_chp::control c;
 				c.valid = true;
 				c.branches.resize(1);
-				c.branches[0].first = export_expression(g.transitions[i[0].index].guard, v);
+				c.branches[0].first = boolean::export_expression(g.transitions[i[0].index].guard, g);
 				result.branches.push_back(parse_chp::branch(c));
 			}
 
@@ -410,15 +29,15 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 			{
 				vector<int> vars = g.transitions[i[0].index].local_action.cubes[0].vars();
 				if (vars.size() == 1)
-					result.branches.push_back(parse_chp::branch(export_assignment(vars[0], g.transitions[i[0].index].local_action.cubes[0].get(vars[0]), v)));
+					result.branches.push_back(parse_chp::branch(boolean::export_assignment(vars[0], g.transitions[i[0].index].local_action.cubes[0].get(vars[0]), g)));
 				else
-					result.branches.push_back(parse_chp::branch(export_parallel(g.transitions[i[0].index].local_action.cubes[0], v)));
+					result.branches.push_back(parse_chp::branch(export_parallel(g.transitions[i[0].index].local_action.cubes[0], g)));
 			}
 			else
-				result.branches.push_back(parse_chp::branch(export_control(g.transitions[i[0].index].local_action, v)));
+				result.branches.push_back(parse_chp::branch(export_control(g.transitions[i[0].index].local_action, g)));
 		}
 		else if (i.size() > 1 && i[0].type == hse::place::type)
-			result.branches.push_back(parse_chp::branch(export_parallel(i, g, v)));
+			result.branches.push_back(parse_chp::branch(export_parallel(i, g)));
 
 		vector<petri::iterator> n = g.next(i);
 		sort(n.begin(), n.end());
@@ -439,7 +58,7 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 	}
 }
 
-parse_chp::composition export_parallel(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v)
+parse_chp::composition export_parallel(vector<petri::iterator> &i, const hse::graph &g)
 {
 	parse_chp::composition result;
 	result.valid = true;
@@ -449,7 +68,7 @@ parse_chp::composition export_parallel(vector<petri::iterator> &i, const hse::gr
 	for (int j = 0; j < (int)i.size(); j++)
 	{
 		vector<petri::iterator> start(1, i[j]);
-		result.branches.push_back(parse_chp::branch(export_sequence(start, g, v)));
+		result.branches.push_back(parse_chp::branch(export_sequence(start, g)));
 		end.insert(end.end(), start.begin(), start.end());
 	}
 
@@ -458,7 +77,7 @@ parse_chp::composition export_parallel(vector<petri::iterator> &i, const hse::gr
 	return result;
 }
 
-parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &g, ucs::variable_set &v)
+parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &g)
 {
 	parse_chp::control result;
 	result.valid = true;
@@ -469,7 +88,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 		vector<petri::iterator> start(1, i[j]);
 		result.branches.push_back(pair<parse_expression::expression, parse_chp::composition>());
 		result.branches.back().second.valid = true;
-		parse_chp::composition s = export_sequence(start, g, v);
+		parse_chp::composition s = export_sequence(start, g);
 		if (s.branches.size() > 0 && s.branches[0].ctrl.valid && s.branches[0].ctrl.branches.size() == 1 &&
 			s.branches[0].ctrl.branches.back().second.branches.size() == 0)
 		{
@@ -477,7 +96,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 			s.branches.erase(s.branches.begin());
 		}
 		else
-			result.branches.back().first = export_expression(boolean::cover(boolean::cube()), v);
+			result.branches.back().first = boolean::export_expression(boolean::cover(boolean::cube()), g);
 
 		result.branches.back().second.branches.push_back(s);
 
@@ -602,7 +221,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 				if (vars.size() == 1)
 					stack.back()->branches.push_back(parse_chp::branch(export_assignment(vars[0], g.transitions[nodes[j].index].local_action.cubes[0].get(vars[0]), v)));
 				else
-					stack.back()->branches.push_back(parse_chp::branch(export_composition(g.transitions[nodes[j].index].local_action, v)));
+					stack.back()->branches.push_back(parse_chp::branch(boolean::export_composition(g.transitions[nodes[j].index].local_action, v)));
 			}
 			else
 				stack.back()->branches.push_back(parse_chp::branch(export_control(g.transitions[nodes[j].index].local_action, v)));
@@ -617,7 +236,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 		else if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::passive)
 		{
 			stack.back()->branches.push_back(parse_chp::branch(parse_chp::control()));
-			stack.back()->branches.back().ctrl.branches.push_back(pair<parse_expression::expression, parse_chp::composition>(export_expression_xfactor(g.transitions[nodes[j].index].local_action, v), parse_chp::composition()));
+			stack.back()->branches.back().ctrl.branches.push_back(pair<parse_expression::expression, parse_chp::composition>(boolean::export_expression_xfactor(g.transitions[nodes[j].index].local_action, v), parse_chp::composition()));
 
 			stack.back()->branches.back().ctrl.start = nodes[j].index;
 			stack.back()->branches.back().ctrl.end = nodes[j].index;
@@ -792,7 +411,7 @@ parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable
 				}
 				else
 					// if it isn't then we need to write our own guard.
-					c->branches[i].first = export_expression(boolean::cube(), v);
+					c->branches[i].first = boolean::export_expression(boolean::cube(), v);
 
 				// recurse
 				m.push_back(&c->branches[i].second);
@@ -848,7 +467,7 @@ parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable
 	return wrapper;
 }*/
 
-string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_set &v)
+string export_node(petri::iterator i, const hse::graph &g)
 {
 	vector<petri::iterator> n, p;
 	if (i.type == hse::place::type) {
@@ -878,9 +497,9 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 				result += "[]...";
 
 			if (!g.transitions[pp[j].index].guard.is_tautology())
-				result += "[" + export_expression_xfactor(g.transitions[pp[j].index].guard, v).to_string() + "]; ";
+				result += "[" + boolean::export_expression_xfactor(g.transitions[pp[j].index].guard, g).to_string() + "]; ";
 			
-			result += export_composition(g.transitions[pp[j].index].local_action, v).to_string();
+			result += boolean::export_composition(g.transitions[pp[j].index].local_action, g).to_string();
 		}
 		if (pp.size() > 1) {
 			result += "]";
@@ -896,12 +515,12 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 		result += "; <here> ";
 	} else {
 		if (not g.transitions[i.index].guard.is_tautology()) {
-			result += ";[" + export_expression_xfactor(g.transitions[i.index].guard, v).to_string() + "]; <here> ";
+			result += ";[" + boolean::export_expression_xfactor(g.transitions[i.index].guard, g).to_string() + "]; <here> ";
 		} else {
 			result += "; <here> ";
 		}
 
-		result +=  export_composition(g.transitions[i.index].local_action, v).to_string() + ";";
+		result +=  boolean::export_composition(g.transitions[i.index].local_action, g).to_string() + ";";
 	}
 
 
@@ -923,11 +542,11 @@ string export_node(petri::iterator i, const hse::graph &g, const ucs::variable_s
 				result += "...[]";
 
 			if (!g.transitions[nn[j].index].guard.is_tautology())
-				result += export_expression_xfactor(g.transitions[nn[j].index].guard, v).to_string() + "->";
+				result += boolean::export_expression_xfactor(g.transitions[nn[j].index].guard, g).to_string() + "->";
 			else
 				result += "1->";
 			
-			result += export_composition(g.transitions[nn[j].index].local_action, v).to_string();
+			result += boolean::export_composition(g.transitions[nn[j].index].local_action, g).to_string();
 		}
 		if (nn.size() > 1) {
 			result += "...]";
