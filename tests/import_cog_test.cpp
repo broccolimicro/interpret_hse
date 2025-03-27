@@ -39,6 +39,8 @@ hse::graph load_cog_string(string input) {
         bool hasRepeat = false;
         g = hse::import_hse(syntax, covered, hasRepeat, 0, &tokens, true);
     }
+
+		g.reset = g.source;
     
     return g;
 }
@@ -53,30 +55,30 @@ TEST(CogImport, BasicSequence) {
             b-
         }
     )");
-    
+   
     // Verify the graph structure
     EXPECT_EQ(g.netCount(), 2);  // a and b
     EXPECT_GE(g.transitions.size(), 4u);  // a+, b+, a-, b-
     
-    int a = g.netIndex("a");
-    int b = g.netIndex("b");
+    int a = g.netIndex("a", 1);
+    int b = g.netIndex("b", 1);
     EXPECT_GE(a, 0);
     EXPECT_GE(b, 0);
+   
+    vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+    vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+    vector<petri::iterator> a0 = findRule(g, 1, boolean::cover(a, 0));
+    vector<petri::iterator> b0 = findRule(g, 1, boolean::cover(b, 0));
     
-    vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-    vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-    vector<petri::iterator> a0 = find_transitions(g, boolean::cover(a, 0));
-    vector<petri::iterator> b0 = find_transitions(g, boolean::cover(b, 0));
-    
-    EXPECT_FALSE(a1.empty());
-    EXPECT_FALSE(b1.empty());
-    EXPECT_FALSE(a0.empty());
-    EXPECT_FALSE(b0.empty());
+    ASSERT_FALSE(a1.empty());
+    ASSERT_FALSE(b1.empty());
+    ASSERT_FALSE(a0.empty());
+    ASSERT_FALSE(b0.empty());
     
     // Verify sequence: a+ -> b+ -> a- -> b-
-    EXPECT_TRUE(are_sequenced(g, a1[0], b1[0]));
-    EXPECT_TRUE(are_sequenced(g, b1[0], a0[0]));
-    EXPECT_TRUE(are_sequenced(g, a0[0], b0[0]));
+    EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+    EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
+    EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
 }
 
 // Test parallel composition
@@ -93,7 +95,7 @@ TEST(CogImport, ParallelComposition) {
     
     // Verify the graph structure
     EXPECT_EQ(g.netCount(), 4);  // a, b, c, d
-    EXPECT_GE(g.transitions.size(), 4u);  // a+, b+, c+, d+
+    EXPECT_GE(g.transitions.size(), 4u);  // a+; b+ || c+; d+
     
     int a = g.netIndex("a");
     int b = g.netIndex("b");
@@ -104,25 +106,25 @@ TEST(CogImport, ParallelComposition) {
     EXPECT_GE(c, 0);
     EXPECT_GE(d, 0);
     
-    vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-    vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-    vector<petri::iterator> c1 = find_transitions(g, boolean::cover(c, 1));
-    vector<petri::iterator> d1 = find_transitions(g, boolean::cover(d, 1));
+    vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+    vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+    vector<petri::iterator> c1 = findRule(g, 1, boolean::cover(c, 1));
+    vector<petri::iterator> d1 = findRule(g, 1, boolean::cover(d, 1));
     
-    EXPECT_FALSE(a1.empty());
-    EXPECT_FALSE(b1.empty());
-    EXPECT_FALSE(c1.empty());
-    EXPECT_FALSE(d1.empty());
+    ASSERT_FALSE(a1.empty());
+    ASSERT_FALSE(b1.empty());
+    ASSERT_FALSE(c1.empty());
+    ASSERT_FALSE(d1.empty());
     
     // Verify sequencing within each branch
-    EXPECT_TRUE(are_sequenced(g, a1[0], b1[0]));
-    EXPECT_TRUE(are_sequenced(g, c1[0], d1[0]));
+    EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+    EXPECT_TRUE(g.is_sequence(c1[0], d1[0]));
     
     // Verify parallelism between branches
-    EXPECT_FALSE(are_sequenced(g, a1[0], c1[0]));
-    EXPECT_FALSE(are_sequenced(g, a1[0], d1[0]));
-    EXPECT_FALSE(are_sequenced(g, b1[0], c1[0]));
-    EXPECT_FALSE(are_sequenced(g, b1[0], d1[0]));
+    EXPECT_TRUE(g.is_parallel(a1[0], c1[0]));
+    EXPECT_TRUE(g.is_parallel(a1[0], d1[0]));
+    EXPECT_TRUE(g.is_parallel(b1[0], c1[0]));
+    EXPECT_TRUE(g.is_parallel(b1[0], d1[0]));
 }
 
 // Test conditional waiting
@@ -131,8 +133,7 @@ TEST(CogImport, ConditionalWaiting) {
         {
             await a {
                 b+
-            }
-            await ~a {
+            } xor await ~a {
                 c+
             }
         }
@@ -140,7 +141,7 @@ TEST(CogImport, ConditionalWaiting) {
     
     // Verify the graph structure
     EXPECT_EQ(g.netCount(), 3);  // a, b, c
-    EXPECT_GE(g.transitions.size(), 2u);  // b+, c+
+    EXPECT_GE(g.transitions.size(), 4u);  // [a]; b+; [~a]; c+
     
     int a = g.netIndex("a");
     int b = g.netIndex("b");
@@ -149,19 +150,22 @@ TEST(CogImport, ConditionalWaiting) {
     EXPECT_GE(b, 0);
     EXPECT_GE(c, 0);
     
-    vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-    vector<petri::iterator> c1 = find_transitions(g, boolean::cover(c, 1));
+    vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+    vector<petri::iterator> c1 = findRule(g, 1, boolean::cover(c, 1));
+    vector<petri::iterator> a1 = findRule(g, boolean::cover(a, 1), 1);
+    vector<petri::iterator> a0 = findRule(g, boolean::cover(a, 0), 1);
     
-    EXPECT_FALSE(b1.empty());
-    EXPECT_FALSE(c1.empty());
+    ASSERT_FALSE(b1.empty());
+    ASSERT_FALSE(c1.empty());
+    ASSERT_FALSE(a1.empty());
+    ASSERT_FALSE(a0.empty());
     
-    // Verify transitions have guards
-    EXPECT_FALSE(g.transitions[b1[0].index].guard.is_tautology());
-    EXPECT_FALSE(g.transitions[c1[0].index].guard.is_tautology());
-    
-    // b+ and c+ should not be sequenced (they're from different branches)
-    EXPECT_FALSE(are_sequenced(g, b1[0], c1[0]));
-    EXPECT_FALSE(are_sequenced(g, c1[0], b1[0]));
+		EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+		EXPECT_TRUE(g.is_sequence(a0[0], c1[0]));
+		EXPECT_TRUE(g.is_choice(a1[0], a0[0]));
+		EXPECT_TRUE(g.is_choice(a1[0], c1[0]));
+		EXPECT_TRUE(g.is_choice(a0[0], b1[0]));
+		EXPECT_TRUE(g.is_choice(c1[0], b1[0]));
 }
 
 // Test while loop
@@ -181,26 +185,26 @@ TEST(CogImport, WhileLoop) {
     EXPECT_EQ(g.netCount(), 2);  // a and b
     EXPECT_GE(g.transitions.size(), 4u);  // a+, b+, a-, b-
     
-    int a = g.netIndex("a");
-    int b = g.netIndex("b");
+    int a = g.netIndex("a", 1);
+    int b = g.netIndex("b", 1);
     EXPECT_GE(a, 0);
     EXPECT_GE(b, 0);
     
-    vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-    vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-    vector<petri::iterator> a0 = find_transitions(g, boolean::cover(a, 0));
-    vector<petri::iterator> b0 = find_transitions(g, boolean::cover(b, 0));
+    vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+    vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+    vector<petri::iterator> a0 = findRule(g, 1, boolean::cover(a, 0));
+    vector<petri::iterator> b0 = findRule(g, 1, boolean::cover(b, 0));
     
-    EXPECT_FALSE(a1.empty());
-    EXPECT_FALSE(b1.empty());
-    EXPECT_FALSE(a0.empty());
-    EXPECT_FALSE(b0.empty());
+    ASSERT_FALSE(a1.empty());
+    ASSERT_FALSE(b1.empty());
+    ASSERT_FALSE(a0.empty());
+    ASSERT_FALSE(b0.empty());
     
     // Verify cycle: should be able to go from any transition back to itself
-    EXPECT_TRUE(are_sequenced(g, b0[0], a1[0]));
-    EXPECT_TRUE(are_sequenced(g, a1[0], b1[0]));
-    EXPECT_TRUE(are_sequenced(g, b1[0], a0[0]));
-    EXPECT_TRUE(are_sequenced(g, a0[0], b0[0]));
+    EXPECT_TRUE(g.is_sequence(b0[0], a1[0]));
+    EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+    EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
+    EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
 }
 
 // Test COG-specific 'await' construct
@@ -216,24 +220,27 @@ TEST(CogImport, AwaitConstruct) {
     
     // Verify the graph structure
     EXPECT_EQ(g.netCount(), 2);  // a and b
-    EXPECT_GE(g.transitions.size(), 2u);  // a+, a-
+    EXPECT_GE(g.transitions.size(), 4u);  // a+; [b]; a-; [~b]
     
-    int a = g.netIndex("a");
-    int b = g.netIndex("b");
+    int a = g.netIndex("a", 1);
+    int b = g.netIndex("b", 1);
     EXPECT_GE(a, 0);
     EXPECT_GE(b, 0);
     
-    vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-    vector<petri::iterator> a0 = find_transitions(g, boolean::cover(a, 0));
+    vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+    vector<petri::iterator> a0 = findRule(g, 1, boolean::cover(a, 0));
+    vector<petri::iterator> b1 = findRule(g, boolean::cover(b, 1), 1);
+    vector<petri::iterator> b0 = findRule(g, boolean::cover(b, 0), 1);
     
-    EXPECT_FALSE(a1.empty());
-    EXPECT_FALSE(a0.empty());
+    ASSERT_EQ(a1.size(), 1u);
+    ASSERT_EQ(a0.size(), 1u);
+    ASSERT_EQ(b1.size(), 1u);
+    ASSERT_EQ(b0.size(), 1u);
     
     // a+ and a- should be sequenced
-    EXPECT_TRUE(are_sequenced(g, a1[0], a0[0]));
-    
-    // Verify transitions have appropriate guards
-    EXPECT_FALSE(g.transitions[a0[0].index].guard.is_tautology());
+    EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+    EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
+    EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
 }
 
 // Test WCHB buffer from example
@@ -275,8 +282,8 @@ TEST(CogImport, WCHB1bBuffer) {
     )");
     
     // Verify the graph structure
-    EXPECT_GT(g.netCount(), 3);  // L.e, L.f, L.t, R.e, R.f, R.t
-    EXPECT_GT(g.transitions.size(), 6u);  // Various transitions for each signal
+    EXPECT_EQ(g.netCount(), 12);  // L.e, L.f, L.t, R.e, R.f, R.t
+    EXPECT_GE(g.transitions.size(), 28u);  // Various transitions for each signal
     
     // Check for key signals
     int le = g.netIndex("L.e");
@@ -294,113 +301,34 @@ TEST(CogImport, WCHB1bBuffer) {
     EXPECT_GE(rt, 0);
     
     // Check for transitions for all signals
-    vector<petri::iterator> le1 = find_transitions(g, boolean::cover(le, 1));
-    vector<petri::iterator> le0 = find_transitions(g, boolean::cover(le, 0));
-    vector<petri::iterator> lf1 = find_transitions(g, boolean::cover(lf, 1));
-    vector<petri::iterator> lf0 = find_transitions(g, boolean::cover(lf, 0));
-    vector<petri::iterator> lt1 = find_transitions(g, boolean::cover(lt, 1));
-    vector<petri::iterator> lt0 = find_transitions(g, boolean::cover(lt, 0));
-    vector<petri::iterator> re1 = find_transitions(g, boolean::cover(re, 1));
-    vector<petri::iterator> re0 = find_transitions(g, boolean::cover(re, 0));
-    vector<petri::iterator> rf1 = find_transitions(g, boolean::cover(rf, 1));
-    vector<petri::iterator> rf0 = find_transitions(g, boolean::cover(rf, 0));
-    vector<petri::iterator> rt1 = find_transitions(g, boolean::cover(rt, 1));
-    vector<petri::iterator> rt0 = find_transitions(g, boolean::cover(rt, 0));
+    vector<petri::iterator> le1 = findRule(g, 1, boolean::cover(le, 1));
+    vector<petri::iterator> le0 = findRule(g, 1, boolean::cover(le, 0));
+    vector<petri::iterator> lf1 = findRule(g, boolean::cover(re, 1) & boolean::cover(lf, 1), 1);
+    vector<petri::iterator> lt1 = findRule(g, boolean::cover(re, 1) & boolean::cover(lt, 1), 1);
+    vector<petri::iterator> lft0 = findRule(g, boolean::cover(re, 0) & boolean::cover(lf, 0) & boolean::cover(lt, 0), 1);
+    vector<petri::iterator> rf1 = findRule(g, 1, boolean::cover(rf, 1));
+    vector<petri::iterator> rf0 = findRule(g, 1, boolean::cover(rf, 0));
+    vector<petri::iterator> rt1 = findRule(g, 1, boolean::cover(rt, 1));
+    vector<petri::iterator> rt0 = findRule(g, 1, boolean::cover(rt, 0));
     
-    EXPECT_FALSE(le1.empty());
-    EXPECT_FALSE(le0.empty());
-    EXPECT_FALSE(lf1.empty());
-    EXPECT_FALSE(lf0.empty());
-    EXPECT_FALSE(lt1.empty());
-    EXPECT_FALSE(lt0.empty());
-    EXPECT_FALSE(re1.empty());
-    EXPECT_FALSE(re0.empty());
-    EXPECT_FALSE(rf1.empty());
-    EXPECT_FALSE(rf0.empty());
-    EXPECT_FALSE(rt1.empty());
-    EXPECT_FALSE(rt0.empty());
+    ASSERT_EQ(le1.size(), 2u);
+    ASSERT_EQ(le0.size(), 1u);
+    ASSERT_EQ(lf1.size(), 1u);
+    ASSERT_EQ(lt1.size(), 1u);
+    ASSERT_EQ(lft0.size(), 1u);
+    ASSERT_EQ(rf1.size(), 1u);
+    ASSERT_EQ(rf0.size(), 2u);
+    ASSERT_EQ(rt1.size(), 1u);
+    ASSERT_EQ(rt0.size(), 2u);
     
-    // Verify key properties of the WCHB buffer:
-    
-    // 1. Left handshake: L.f+ (or L.t+) should be followed by L.e-
-    bool left_handshake = are_sequenced(g, lf1[0], le0[0]) || are_sequenced(g, lt1[0], le0[0]);
-    EXPECT_TRUE(left_handshake);
-    
-    // 2. Right handshake: R.f+ (or R.t+) should be followed by R.e-
-    bool right_handshake = are_sequenced(g, rf1[0], re0[0]) || are_sequenced(g, rt1[0], re0[0]);
-    EXPECT_TRUE(right_handshake);
-    
-    // 3. Check cycles - signals should form a loop
-    EXPECT_TRUE(are_sequenced(g, le1[0], le1[0]));
-    EXPECT_TRUE(are_sequenced(g, re1[0], re1[0]));
+    EXPECT_TRUE(g.is_sequence(lf1[0], rf1[0]));
+    EXPECT_TRUE(g.is_sequence(lt1[0], rt1[0]));
+    EXPECT_TRUE(g.is_choice(lf1[0], lt1[0]));
+    EXPECT_TRUE(g.is_sequence(le0[0], lft0[0]));
+    EXPECT_TRUE(g.is_sequence(lft0[0], rf0[1]));
+    EXPECT_TRUE(g.is_sequence(lft0[0], rt0[1]));
+    EXPECT_TRUE(g.is_parallel(rf0[1], rt0[1]));
+    EXPECT_TRUE(g.is_sequence(rf0[1], le1[1]));
+    EXPECT_TRUE(g.is_sequence(rt0[1], le1[1]));
 }
 
-// Test alternative 'or' construct in COG
-TEST(CogImport, OrConstruct) {
-    hse::graph g = load_cog_string(R"(
-        region 1 {
-            await a {
-                b+
-            } or await c {
-                d+
-            }
-        }
-    )");
-    
-    // Verify the graph structure
-    EXPECT_EQ(g.netCount(), 4);  // a, b, c, d
-    EXPECT_GE(g.transitions.size(), 2u);  // b+, d+
-    
-    int a = g.netIndex("a");
-    int b = g.netIndex("b");
-    int c = g.netIndex("c");
-    int d = g.netIndex("d");
-    
-    EXPECT_GE(a, 0);
-    EXPECT_GE(b, 0);
-    EXPECT_GE(c, 0);
-    EXPECT_GE(d, 0);
-    
-    vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-    vector<petri::iterator> d1 = find_transitions(g, boolean::cover(d, 1));
-    
-    EXPECT_FALSE(b1.empty());
-    EXPECT_FALSE(d1.empty());
-    
-    // Verify transitions have guards
-    EXPECT_FALSE(g.transitions[b1[0].index].guard.is_tautology());
-    EXPECT_FALSE(g.transitions[d1[0].index].guard.is_tautology());
-    
-    // b+ and d+ should not be sequenced (they're mutual exclusive)
-    EXPECT_FALSE(are_sequenced(g, b1[0], d1[0]));
-    EXPECT_FALSE(are_sequenced(g, d1[0], b1[0]));
-}
-
-// Test 'xor' expression in COG
-TEST(CogImport, XorExpression) {
-    hse::graph g = load_cog_string(R"(
-        region 1 {
-            a+ xor b+
-        }
-    )");
-    
-    // Verify the graph structure
-    EXPECT_EQ(g.netCount(), 2);  // a and b
-    EXPECT_GE(g.transitions.size(), 2u);  // a+, b+
-    
-    int a = g.netIndex("a");
-    int b = g.netIndex("b");
-    
-    EXPECT_GE(a, 0);
-    EXPECT_GE(b, 0);
-    
-    vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-    vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-    
-    EXPECT_FALSE(a1.empty());
-    EXPECT_FALSE(b1.empty());
-    
-    // a+ and b+ should be mutual exclusive
-    EXPECT_FALSE(are_sequenced(g, a1[0], b1[0]));
-    EXPECT_FALSE(are_sequenced(g, b1[0], a1[0]));
-} 

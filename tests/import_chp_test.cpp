@@ -32,82 +32,86 @@ hse::graph load_hse_string(string input) {
 		parse_chp::composition syntax(tokens);
 		g = hse::import_hse(syntax, 0, &tokens, true);
 	}
+	
+	g.reset = g.source;
 
 	return g;
 }
 
 // Test basic sequence import (a+; b+; a-; b-)
-TEST(ImportChp, Sequence) {
-	hse::graph g = load_hse_string("a+; b+; a-; b-");
+TEST(ChpImport, Sequence) {
+	hse::graph g = load_hse_string("a+; b+; c-; d-");
 	
 	// Verify the graph structure
-	EXPECT_EQ(g.netCount(), 2);
+	EXPECT_EQ(g.netCount(), 4);
 	EXPECT_EQ(g.transitions.size(), 4u);
 	EXPECT_EQ(g.places.size(), 5u);
 
 	int a = g.netIndex("a");
 	int b = g.netIndex("b");
+	int c = g.netIndex("c");
+	int d = g.netIndex("d");
 	EXPECT_GE(a, 0);
 	EXPECT_GE(b, 0);
 
-	vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-	vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-	vector<petri::iterator> a0 = find_transitions(g, boolean::cover(a, 0));
-	vector<petri::iterator> b0 = find_transitions(g, boolean::cover(b, 0));
+	vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+	vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+	vector<petri::iterator> a0 = findRule(g, 1, boolean::cover(c, 0));
+	vector<petri::iterator> b0 = findRule(g, 1, boolean::cover(d, 0));
 	
-	EXPECT_FALSE(a1.empty());
-	EXPECT_FALSE(b1.empty());
-	EXPECT_FALSE(a0.empty());
-	EXPECT_FALSE(b0.empty());
+	ASSERT_EQ(a1.size(), 1u);
+	ASSERT_EQ(b1.size(), 1u);
+	ASSERT_EQ(a0.size(), 1u);
+	ASSERT_EQ(b0.size(), 1u);
 
-	EXPECT_TRUE(are_sequenced(g, a1[0], b1[0]));
-	EXPECT_TRUE(are_sequenced(g, b1[0], a0[0]));
-	EXPECT_TRUE(are_sequenced(g, a0[0], b0[0]));
+	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+	EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
+	EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
 }
 
 // Test parallel composition import ((a+, b+); (a-, b-))
-TEST(ImportChp, Parallel) {
+TEST(ChpImport, Parallel) {
 	hse::graph g = load_hse_string("(a+, b+); (a-, b-)");
-	
+
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);
-	EXPECT_EQ(g.transitions.size(), 4u);
+	EXPECT_EQ(g.transitions.size(), 5u);
 	
 	int a = g.netIndex("a");
 	int b = g.netIndex("b");
 	EXPECT_GE(a, 0);
 	EXPECT_GE(b, 0);
 
-	vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-	vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-	vector<petri::iterator> a0 = find_transitions(g, boolean::cover(a, 0));
-	vector<petri::iterator> b0 = find_transitions(g, boolean::cover(b, 0));
+	vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+	vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+	vector<petri::iterator> a0 = findRule(g, 1, boolean::cover(a, 0));
+	vector<petri::iterator> b0 = findRule(g, 1, boolean::cover(b, 0));
+	vector<petri::iterator> sp = findRule(g, 1, 1);
 	
-	EXPECT_FALSE(a1.empty());
-	EXPECT_FALSE(b1.empty());
-	EXPECT_FALSE(a0.empty());
-	EXPECT_FALSE(b0.empty());
-	
+	ASSERT_EQ(a1.size(), 1u);
+	ASSERT_EQ(b1.size(), 1u);
+	ASSERT_EQ(a0.size(), 1u);
+	ASSERT_EQ(b0.size(), 1u);
+	ASSERT_EQ(sp.size(), 1u);
+
 	// Verify parallel structure - a+ and b+ should be concurrent
-	EXPECT_FALSE(are_sequenced(g, a1[0], b1[0]));
-	EXPECT_FALSE(are_sequenced(g, b1[0], a1[0]));
-	
-	// Verify a- and b- are concurrent
-	EXPECT_FALSE(are_sequenced(g, a0[0], b0[0]));
-	EXPECT_FALSE(are_sequenced(g, b0[0], a0[0]));
+	EXPECT_TRUE(g.is_parallel(a1[0], b1[0]));
+	EXPECT_TRUE(g.is_parallel(a0[0], b0[0]));
 	
 	// Verify sequencing - first parallel group completes before second group
-	EXPECT_TRUE(are_sequenced(g, a1[0], a0[0]));
-	EXPECT_TRUE(are_sequenced(g, b1[0], b0[0]));
+	EXPECT_TRUE(g.is_sequence(a1[0], sp[0]));
+	EXPECT_TRUE(g.is_sequence(sp[0], a0[0]));
+	EXPECT_TRUE(g.is_sequence(b1[0], sp[0]));
+	EXPECT_TRUE(g.is_sequence(sp[0], b0[0]));
 }
 
 // Test selection import ([c -> a+; a- [] ~c -> b+; b-])
-TEST(ImportChp, Selection) {
+TEST(ChpImport, Selection) {
 	hse::graph g = load_hse_string("[c -> a+; a- [] ~c -> b+; b-]");
-	
+
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 3);  // a, b, and c
-	EXPECT_EQ(g.transitions.size(), 4u);
+	EXPECT_EQ(g.transitions.size(), 6u);
 	
 	int a = g.netIndex("a");
 	int b = g.netIndex("b");
@@ -116,31 +120,35 @@ TEST(ImportChp, Selection) {
 	EXPECT_GE(b, 0);
 	EXPECT_GE(c, 0);
 
-	vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-	vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-	vector<petri::iterator> a0 = find_transitions(g, boolean::cover(a, 0));
-	vector<petri::iterator> b0 = find_transitions(g, boolean::cover(b, 0));
-	
-	EXPECT_FALSE(a1.empty());
-	EXPECT_FALSE(b1.empty());
-	EXPECT_FALSE(a0.empty());
-	EXPECT_FALSE(b0.empty());
+	vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+	vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+	vector<petri::iterator> a0 = findRule(g, 1, boolean::cover(a, 0));
+	vector<petri::iterator> b0 = findRule(g, 1, boolean::cover(b, 0));
+	vector<petri::iterator> c1 = findRule(g, boolean::cover(c, 1), 1);
+	vector<petri::iterator> c0 = findRule(g, boolean::cover(c, 0), 1);
+
+	ASSERT_EQ(a1.size(), 1u);
+	ASSERT_EQ(b1.size(), 1u);
+	ASSERT_EQ(a0.size(), 1u);
+	ASSERT_EQ(b0.size(), 1u);
+	ASSERT_EQ(c1.size(), 1u);
+	ASSERT_EQ(c0.size(), 1u);
 	
 	// Verify selection structure (no path between a+ and b+)
-	EXPECT_FALSE(are_sequenced(g, a1[0], b1[0]));
-	EXPECT_FALSE(are_sequenced(g, b1[0], a1[0]));
+	EXPECT_TRUE(g.is_choice(c1[0], c0[0]));
+	EXPECT_TRUE(g.is_choice(a1[0], b1[0]));
+	EXPECT_TRUE(g.is_choice(a0[0], b0[0]));
 	
 	// Verify each branch internal sequencing
-	EXPECT_TRUE(are_sequenced(g, a1[0], a0[0]));
-	EXPECT_TRUE(are_sequenced(g, b1[0], b0[0]));
-	
-	// Verify guards on first transitions of each branch
-	EXPECT_FALSE(g.transitions[a1[0].index].guard.is_tautology());
-	EXPECT_FALSE(g.transitions[b1[0].index].guard.is_tautology());
+	EXPECT_TRUE(g.is_sequence(c1[0], a1[0]));
+	EXPECT_TRUE(g.is_sequence(a1[0], a0[0]));
+
+	EXPECT_TRUE(g.is_sequence(c0[0], b1[0]));
+	EXPECT_TRUE(g.is_sequence(b1[0], b0[0]));
 }
 
 // Test loop import (*[a+; b+; a-; b-])
-TEST(ImportChp, Loop) {
+TEST(ChpImport, Loop) {
 	hse::graph g = load_hse_string("*[a+; b+; a-; b-]");
 	
 	// Verify the graph structure
@@ -152,31 +160,25 @@ TEST(ImportChp, Loop) {
 	EXPECT_GE(a, 0);
 	EXPECT_GE(b, 0);
 
-	vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-	vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-	vector<petri::iterator> a0 = find_transitions(g, boolean::cover(a, 0));
-	vector<petri::iterator> b0 = find_transitions(g, boolean::cover(b, 0));
+	vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+	vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+	vector<petri::iterator> a0 = findRule(g, 1, boolean::cover(a, 0));
+	vector<petri::iterator> b0 = findRule(g, 1, boolean::cover(b, 0));
 	
-	EXPECT_FALSE(a1.empty());
-	EXPECT_FALSE(b1.empty());
-	EXPECT_FALSE(a0.empty());
-	EXPECT_FALSE(b0.empty());
+	ASSERT_EQ(a1.size(), 1u);
+	ASSERT_EQ(b1.size(), 1u);
+	ASSERT_EQ(a0.size(), 1u);
+	ASSERT_EQ(b0.size(), 1u);
 	
 	// Verify cycle: should be able to go from any transition back to itself
-	EXPECT_TRUE(are_sequenced(g, a1[0], a1[0]));
-	EXPECT_TRUE(are_sequenced(g, b1[0], b1[0]));
-	EXPECT_TRUE(are_sequenced(g, a0[0], a0[0]));
-	EXPECT_TRUE(are_sequenced(g, b0[0], b0[0]));
-	
-	// Verify order within the loop
-	EXPECT_TRUE(are_sequenced(g, a1[0], b1[0]));
-	EXPECT_TRUE(are_sequenced(g, b1[0], a0[0]));
-	EXPECT_TRUE(are_sequenced(g, a0[0], b0[0]));
-	EXPECT_TRUE(are_sequenced(g, b0[0], a1[0]));
+	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+	EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
+	EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
+	EXPECT_TRUE(g.is_sequence(b0[0], a1[0]));
 }
 
 // Test more complex expressions with composition
-TEST(ImportChp, ComplexComposition) {
+TEST(ChpImport, ComplexComposition) {
 	hse::graph g = load_hse_string("(a+; b+) || (c+; d+)");
 	
 	// Verify the graph structure
@@ -192,34 +194,34 @@ TEST(ImportChp, ComplexComposition) {
 	EXPECT_GE(c, 0);
 	EXPECT_GE(d, 0);
 
-	vector<petri::iterator> a1 = find_transitions(g, boolean::cover(a, 1));
-	vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-	vector<petri::iterator> c1 = find_transitions(g, boolean::cover(c, 1));
-	vector<petri::iterator> d1 = find_transitions(g, boolean::cover(d, 1));
+	vector<petri::iterator> a1 = findRule(g, 1, boolean::cover(a, 1));
+	vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+	vector<petri::iterator> c1 = findRule(g, 1, boolean::cover(c, 1));
+	vector<petri::iterator> d1 = findRule(g, 1, boolean::cover(d, 1));
 	
-	EXPECT_FALSE(a1.empty());
-	EXPECT_FALSE(b1.empty());
-	EXPECT_FALSE(c1.empty());
-	EXPECT_FALSE(d1.empty());
+	ASSERT_EQ(a1.size(), 1u);
+	ASSERT_EQ(b1.size(), 1u);
+	ASSERT_EQ(c1.size(), 1u);
+	ASSERT_EQ(d1.size(), 1u);
 	
 	// Verify sequence within each composition
-	EXPECT_TRUE(are_sequenced(g, a1[0], b1[0]));
-	EXPECT_TRUE(are_sequenced(g, c1[0], d1[0]));
+	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+	EXPECT_TRUE(g.is_sequence(c1[0], d1[0]));
 	
 	// Verify independence between compositions
-	EXPECT_FALSE(are_sequenced(g, a1[0], c1[0]));
-	EXPECT_FALSE(are_sequenced(g, c1[0], a1[0]));
-	EXPECT_FALSE(are_sequenced(g, b1[0], d1[0]));
-	EXPECT_FALSE(are_sequenced(g, d1[0], b1[0]));
+	EXPECT_TRUE(g.is_parallel(a1[0], c1[0]));
+	EXPECT_TRUE(g.is_parallel(c1[0], a1[0]));
+	EXPECT_TRUE(g.is_parallel(b1[0], d1[0]));
+	EXPECT_TRUE(g.is_parallel(d1[0], b1[0]));
 }
 
 // Test nested control structures
-TEST(ImportChp, NestedControls) {
+TEST(ChpImport, NestedControls) {
 	hse::graph g = load_hse_string("*[[a -> b+; b- [] ~a -> c+; (d+, e+); c-; (d-, e-)]]");
-	
+
 	// Verify the graph structure
 	EXPECT_GT(g.netCount(), 4);  // a, b, c, d, e
-	EXPECT_GT(g.transitions.size(), 6u);  // At least b+, b-, c+, c-, d+/-, e+/-
+	EXPECT_GT(g.transitions.size(), 10u);  // At least b+, b-, c+, c-, d+/-, e+/-
 	
 	int a = g.netIndex("a");
 	int b = g.netIndex("b");
@@ -232,41 +234,45 @@ TEST(ImportChp, NestedControls) {
 	EXPECT_GE(d, 0);
 	EXPECT_GE(e, 0);
 
-	vector<petri::iterator> b1 = find_transitions(g, boolean::cover(b, 1));
-	vector<petri::iterator> b0 = find_transitions(g, boolean::cover(b, 0));
-	vector<petri::iterator> c1 = find_transitions(g, boolean::cover(c, 1));
-	vector<petri::iterator> c0 = find_transitions(g, boolean::cover(c, 0));
-	vector<petri::iterator> d1 = find_transitions(g, boolean::cover(d, 1));
-	vector<petri::iterator> d0 = find_transitions(g, boolean::cover(d, 0));
-	vector<petri::iterator> e1 = find_transitions(g, boolean::cover(e, 1));
-	vector<petri::iterator> e0 = find_transitions(g, boolean::cover(e, 0));
+	vector<petri::iterator> b1 = findRule(g, 1, boolean::cover(b, 1));
+	vector<petri::iterator> b0 = findRule(g, 1, boolean::cover(b, 0));
+	vector<petri::iterator> c1 = findRule(g, 1, boolean::cover(c, 1));
+	vector<petri::iterator> c0 = findRule(g, 1, boolean::cover(c, 0));
+	vector<petri::iterator> d1 = findRule(g, 1, boolean::cover(d, 1));
+	vector<petri::iterator> d0 = findRule(g, 1, boolean::cover(d, 0));
+	vector<petri::iterator> e1 = findRule(g, 1, boolean::cover(e, 1));
+	vector<petri::iterator> e0 = findRule(g, 1, boolean::cover(e, 0));
+	vector<petri::iterator> a0 = findRule(g, boolean::cover(a, 0), 1);
+	vector<petri::iterator> a1 = findRule(g, boolean::cover(a, 1), 1);
+	vector<petri::iterator> sp = findRule(g, 1, 1);
 	
-	EXPECT_FALSE(b1.empty());
-	EXPECT_FALSE(b0.empty());
-	EXPECT_FALSE(c1.empty());
-	EXPECT_FALSE(c0.empty());
-	EXPECT_FALSE(d1.empty());
-	EXPECT_FALSE(d0.empty());
-	EXPECT_FALSE(e1.empty());
-	EXPECT_FALSE(e0.empty());
+	ASSERT_EQ(b1.size(), 1u);
+	ASSERT_EQ(b0.size(), 1u);
+	ASSERT_EQ(c1.size(), 1u);
+	ASSERT_EQ(c0.size(), 1u);
+	ASSERT_EQ(d1.size(), 1u);
+	ASSERT_EQ(d0.size(), 1u);
+	ASSERT_EQ(e1.size(), 1u);
+	ASSERT_EQ(e0.size(), 1u);
+	ASSERT_EQ(a0.size(), 1u);
+	ASSERT_EQ(a1.size(), 1u);
+	ASSERT_EQ(sp.size(), 1u);
 	
 	// Verify loops - all transitions should be part of a cycle
-	EXPECT_TRUE(are_sequenced(g, b1[0], b1[0]));
-	EXPECT_TRUE(are_sequenced(g, c1[0], c1[0]));
-	
-	// Verify sequence in first branch
-	EXPECT_TRUE(are_sequenced(g, b1[0], b0[0]));
-	
-	// Verify sequence in second branch
-	EXPECT_TRUE(are_sequenced(g, c1[0], c0[0]));
-	
-	// Verify parallel operations
-	EXPECT_FALSE(are_sequenced(g, d1[0], e1[0]));
-	EXPECT_FALSE(are_sequenced(g, e1[0], d1[0]));
-	EXPECT_FALSE(are_sequenced(g, d0[0], e0[0]));
-	EXPECT_FALSE(are_sequenced(g, e0[0], d0[0]));
-	
-	// Verify guards on selection branches
-	EXPECT_FALSE(g.transitions[b1[0].index].guard.is_tautology());
-	EXPECT_FALSE(g.transitions[c1[0].index].guard.is_tautology());
+	EXPECT_TRUE(g.is_sequence(b1[0], b0[0]));
+	EXPECT_TRUE(g.is_sequence(c1[0], d1[0]));
+	EXPECT_TRUE(g.is_sequence(c1[0], e1[0]));
+	EXPECT_TRUE(g.is_sequence(d1[0], c0[0]));
+	EXPECT_TRUE(g.is_sequence(e1[0], c0[0]));
+	EXPECT_TRUE(g.is_sequence(c0[0], d0[0]));
+	EXPECT_TRUE(g.is_sequence(c0[0], e0[0]));
+
+	EXPECT_TRUE(g.is_sequence(d0[0], sp[0]));
+	EXPECT_TRUE(g.is_sequence(e0[0], sp[0]));
+
+	EXPECT_TRUE(g.is_sequence(sp[0], a0[0]));
+	EXPECT_TRUE(g.is_sequence(b0[0], a1[0]));
+
+	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
+	EXPECT_TRUE(g.is_sequence(a0[0], c1[0]));
 } 
