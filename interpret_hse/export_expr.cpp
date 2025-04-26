@@ -4,7 +4,7 @@
 
 namespace hse {
 
-parse_chp::composition export_parallel(boolean::cube c, boolean::ConstNetlist nets)
+parse_chp::composition export_parallel(boolean::cube c, ucs::ConstNetlist nets)
 {
 	parse_chp::composition result;
 	result.valid = true;
@@ -21,7 +21,7 @@ parse_chp::composition export_parallel(boolean::cube c, boolean::ConstNetlist ne
 	return result;
 }
 
-parse_chp::control export_control(boolean::cover c, boolean::ConstNetlist nets)
+parse_chp::control export_control(boolean::cover c, ucs::ConstNetlist nets)
 {
 	parse_chp::control result;
 	result.valid = true;
