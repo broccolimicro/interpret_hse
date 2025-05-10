@@ -37,7 +37,7 @@ parse_astg::graph export_astg(const hse::graph &g)
 
 	// Add the variables
 	for (int i = 0; i < (int)g.nets.size(); i++)
-		result.internal.push_back(g.netAt(i));
+		result.internal.push_back(ucs::Net(g.netAt(i)));
 
 	// Add the predicates and effective predicates
 	for (int i = 0; i < (int)g.places.size(); i++)

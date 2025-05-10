@@ -60,8 +60,8 @@ TEST(CogImport, BasicSequence) {
     EXPECT_EQ(g.netCount(), 2);  // a and b
     EXPECT_GE(g.transitions.size(), 4u);  // a+, b+, a-, b-
     
-    int a = g.netIndex(ucs::Net("a", 1));
-    int b = g.netIndex(ucs::Net("b", 1));
+    int a = g.netIndex("a'1");
+    int b = g.netIndex("b'1");
     EXPECT_GE(a, 0);
     EXPECT_GE(b, 0);
    
@@ -185,8 +185,8 @@ TEST(CogImport, WhileLoop) {
     EXPECT_EQ(g.netCount(), 2);  // a and b
     EXPECT_GE(g.transitions.size(), 4u);  // a+, b+, a-, b-
     
-    int a = g.netIndex(ucs::Net("a", 1));
-    int b = g.netIndex(ucs::Net("b", 1));
+    int a = g.netIndex("a'1");
+    int b = g.netIndex("b'1");
     EXPECT_GE(a, 0);
     EXPECT_GE(b, 0);
     
@@ -222,8 +222,8 @@ TEST(CogImport, AwaitConstruct) {
     EXPECT_EQ(g.netCount(), 2);  // a and b
     EXPECT_GE(g.transitions.size(), 4u);  // a+; [b]; a-; [~b]
     
-    int a = g.netIndex(ucs::Net("a", 1));
-    int b = g.netIndex(ucs::Net("b", 1));
+    int a = g.netIndex("a'1");
+    int b = g.netIndex("b'1");
     EXPECT_GE(a, 0);
     EXPECT_GE(b, 0);
     
