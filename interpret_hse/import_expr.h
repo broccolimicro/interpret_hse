@@ -7,7 +7,7 @@
 
 namespace hse {
 
-hse::graph import_hse(const parse_expression::expression &syntax, bool assume, int default_id, tokenizer *tokens, bool auto_define);
-hse::graph import_hse(const parse_expression::assignment &syntax, int default_id, tokenizer *tokens, bool auto_define);
+petri::segment import_segment(hse::graph &dst, const parse_expression::expression &syntax, bool assume, int default_id, tokenizer *tokens, bool auto_define);
+petri::segment import_segment(hse::graph &dst, const parse_expression::assignment &syntax, int default_id, tokenizer *tokens, bool auto_define);
 
 }

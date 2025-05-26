@@ -7,7 +7,8 @@
 
 namespace hse {
 
-hse::graph import_hse(const parse_chp::composition &syntax, int default_id, tokenizer *tokens, bool auto_define);
-hse::graph import_hse(const parse_chp::control &syntax, int default_id, tokenizer *tokens, bool auto_define);
+petri::segment import_segment(hse::graph &dst, const parse_chp::composition &syntax, int default_id, tokenizer *tokens, bool auto_define);
+petri::segment import_segment(hse::graph &dst, const parse_chp::control &syntax, int default_id, tokenizer *tokens, bool auto_define);
+void import_hse(hse::graph &dst, const parse_chp::composition &syntax, tokenizer *tokens, bool auto_define);
 
 }

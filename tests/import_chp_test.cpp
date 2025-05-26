@@ -7,6 +7,7 @@
 #include <parse/default/line_comment.h>
 #include <parse_chp/composition.h>
 #include <interpret_hse/import_chp.h>
+#include <interpret_hse/export_dot.h>
 
 #include "helpers.h"
 
@@ -24,16 +25,14 @@ hse::graph load_hse_string(string input) {
 	tokens.insert("string_input", input, nullptr);
 
 	hse::graph g;
-	
+
 	// Parse input
 	tokens.increment(false);
 	tokens.expect<parse_chp::composition>();
 	if (tokens.decrement(__FILE__, __LINE__)) {
 		parse_chp::composition syntax(tokens);
-		g = hse::import_hse(syntax, 0, &tokens, true);
+		hse::import_hse(g, syntax, &tokens, true);
 	}
-	
-	g.reset = g.source;
 
 	return g;
 }
@@ -41,11 +40,11 @@ hse::graph load_hse_string(string input) {
 // Test basic sequence import (a+; b+; a-; b-)
 TEST(ChpImport, Sequence) {
 	hse::graph g = load_hse_string("a+; b+; c-; d-");
-	
+
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 4);
 	EXPECT_EQ(g.transitions.size(), 4u);
-	EXPECT_EQ(g.places.size(), 5u);
+	EXPECT_EQ(g.places.size(), 4u);
 
 	int a = g.netIndex("a");
 	int b = g.netIndex("b");
@@ -72,7 +71,7 @@ TEST(ChpImport, Sequence) {
 // Test parallel composition import ((a+, b+); (a-, b-))
 TEST(ChpImport, Parallel) {
 	hse::graph g = load_hse_string("(a+, b+); (a-, b-)");
-
+	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);
 	EXPECT_EQ(g.transitions.size(), 5u);
@@ -108,7 +107,7 @@ TEST(ChpImport, Parallel) {
 // Test selection import ([c -> a+; a- [] ~c -> b+; b-])
 TEST(ChpImport, Selection) {
 	hse::graph g = load_hse_string("[c -> a+; a- [] ~c -> b+; b-]");
-
+	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 3);  // a, b, and c
 	EXPECT_EQ(g.transitions.size(), 6u);
@@ -218,7 +217,7 @@ TEST(ChpImport, ComplexComposition) {
 // Test nested control structures
 TEST(ChpImport, NestedControls) {
 	hse::graph g = load_hse_string("*[[a -> b+; b- [] ~a -> c+; (d+, e+); c-; (d-, e-)]]");
-
+	
 	// Verify the graph structure
 	EXPECT_GT(g.netCount(), 4);  // a, b, c, d, e
 	EXPECT_GT(g.transitions.size(), 10u);  // At least b+, b-, c+, c-, d+/-, e+/-
