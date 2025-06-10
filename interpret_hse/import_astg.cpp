@@ -59,13 +59,13 @@ hse::graph import_hse(const parse_astg::graph &syntax, tokenizer *tokens)
 	hse::graph result;
 	map<string, hse::iterator> ids;
 	for (int i = 0; i < (int)syntax.inputs.size(); i++)
-		boolean::import_net(syntax.inputs[i], result, 0, tokens, true);
+		boolean::import_net(syntax.inputs[i].to_string(), result, tokens, true);
 
 	for (int i = 0; i < (int)syntax.outputs.size(); i++)
-		boolean::import_net(syntax.outputs[i], result, 0, tokens, true);
+		boolean::import_net(syntax.outputs[i].to_string(), result, tokens, true);
 
 	for (int i = 0; i < (int)syntax.internal.size(); i++)
-		boolean::import_net(syntax.internal[i], result, 0, tokens, true);
+		boolean::import_net(syntax.internal[i].to_string(), result, tokens, true);
 
 	for (int i = 0; i < (int)syntax.arcs.size(); i++)
 		import_hse(syntax.arcs[i], result, ids, tokens);
