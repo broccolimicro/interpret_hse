@@ -5,7 +5,7 @@
 #include <parse/tokenizer.h>
 #include <parse/default/block_comment.h>
 #include <parse/default/line_comment.h>
-#include <parse_chp/composition.h>
+#include <parse_chp/factory.h>
 #include <interpret_hse/import_chp.h>
 #include <interpret_hse/export_dot.h>
 
@@ -20,7 +20,7 @@ hse::graph load_hse_string(string input) {
 	tokenizer tokens;
 	tokens.register_token<parse::block_comment>(false);
 	tokens.register_token<parse::line_comment>(false);
-	parse_chp::composition::register_syntax(tokens);
+	parse_chp::register_syntax(tokens);
 
 	tokens.insert("string_input", input, nullptr);
 
