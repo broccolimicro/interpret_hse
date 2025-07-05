@@ -132,7 +132,7 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 
 		if (!g_vacuous && !a_vacuous) {
 			action.second = boolean::export_expression_xfactor(g.transitions[i.index].guard, g).to_string() + " -> " +
-			                boolean::export_composition(g.transitions[i.index].local_action, g).to_string();
+				boolean::export_composition(g.transitions[i.index].local_action, g).to_string();
 		} else if (!g_vacuous) {
 			action.second = "[" + boolean::export_expression_xfactor(g.transitions[i.index].guard, g).to_string() + "]";
 		} else {
