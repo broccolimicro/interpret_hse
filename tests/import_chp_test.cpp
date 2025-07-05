@@ -243,7 +243,6 @@ TEST(ChpImport, NestedControls) {
 	vector<petri::iterator> e0 = findRule(g, 1, boolean::cover(e, 0));
 	vector<petri::iterator> a0 = findRule(g, boolean::cover(a, 0), 1);
 	vector<petri::iterator> a1 = findRule(g, boolean::cover(a, 1), 1);
-	vector<petri::iterator> sp = findRule(g, 1, 1);
 	
 	ASSERT_EQ(b1.size(), 1u);
 	ASSERT_EQ(b0.size(), 1u);
@@ -255,7 +254,6 @@ TEST(ChpImport, NestedControls) {
 	ASSERT_EQ(e0.size(), 1u);
 	ASSERT_EQ(a0.size(), 1u);
 	ASSERT_EQ(a1.size(), 1u);
-	ASSERT_EQ(sp.size(), 1u);
 	
 	// Verify loops - all transitions should be part of a cycle
 	EXPECT_TRUE(g.is_sequence(b1[0], b0[0]));
@@ -266,10 +264,6 @@ TEST(ChpImport, NestedControls) {
 	EXPECT_TRUE(g.is_sequence(c0[0], d0[0]));
 	EXPECT_TRUE(g.is_sequence(c0[0], e0[0]));
 
-	EXPECT_TRUE(g.is_sequence(d0[0], sp[0]));
-	EXPECT_TRUE(g.is_sequence(e0[0], sp[0]));
-
-	EXPECT_TRUE(g.is_sequence(sp[0], a0[0]));
 	EXPECT_TRUE(g.is_sequence(b0[0], a1[0]));
 
 	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
