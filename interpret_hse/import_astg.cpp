@@ -6,7 +6,7 @@
 
 namespace hse {
 
-hse::iterator import_hse(const parse_astg::node &syntax, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
+hse::iterator import_hse(hse::graph &dst, const parse_astg::node &syntax, map<string, hse::iterator> &ids, tokenizer *tokens)
 {
 	hse::iterator i(-1,-1);
 	if (syntax.id.size() > 0) {
@@ -30,51 +30,50 @@ hse::iterator import_hse(const parse_astg::node &syntax, hse::graph &g, map<stri
 		boolean::cover guard = 1;
 		boolean::cover action = 1;
 		if (syntax.guard.valid) {
-			guard = boolean::import_cover(syntax.guard, g, 0, tokens, false);
+			guard = boolean::import_cover(syntax.guard, dst, 0, tokens, false);
 		}
 		if (syntax.assign.valid) {
-			action = boolean::import_cover(syntax.assign, g, 0, tokens, false);
+			action = boolean::import_cover(syntax.assign, dst, 0, tokens, false);
 		}
 		
-		g.create_at(hse::transition(1, guard, action), i.index);
+		dst.create_at(hse::transition(1, guard, action), i.index);
 	} else if (created.second) {
-		g.create_at(hse::place(), i.index);
+		dst.create_at(hse::place(), i.index);
 	}
 
 	return i;
 }
 
-void import_hse(const parse_astg::arc &syntax, hse::graph &g, map<string, hse::iterator> &ids, tokenizer *tokens)
+void import_hse(hse::graph &dst, const parse_astg::arc &syntax, map<string, hse::iterator> &ids, tokenizer *tokens)
 {
-	hse::iterator base = import_hse(syntax.nodes[0], g, ids, tokens);
+	hse::iterator base = import_hse(dst, syntax.nodes[0], ids, tokens);
 	for (int i = 1; i < (int)syntax.nodes.size(); i++)
 	{
-		hse::iterator next = import_hse(syntax.nodes[i], g, ids, tokens);
-		g.connect(base, next);
+		hse::iterator next = import_hse(dst, syntax.nodes[i], ids, tokens);
+		dst.connect(base, next);
 	}
 }
 
-hse::graph import_hse(const parse_astg::graph &syntax, tokenizer *tokens)
+void import_hse(hse::graph &dst, const parse_astg::graph &syntax, tokenizer *tokens)
 {
-	hse::graph result;
 	map<string, hse::iterator> ids;
 	for (int i = 0; i < (int)syntax.inputs.size(); i++)
-		boolean::import_net(syntax.inputs[i].to_string(), result, tokens, true);
+		boolean::import_net(syntax.inputs[i].to_string(), dst, tokens, true);
 
 	for (int i = 0; i < (int)syntax.outputs.size(); i++)
-		boolean::import_net(syntax.outputs[i].to_string(), result, tokens, true);
+		boolean::import_net(syntax.outputs[i].to_string(), dst, tokens, true);
 
 	for (int i = 0; i < (int)syntax.internal.size(); i++)
-		boolean::import_net(syntax.internal[i].to_string(), result, tokens, true);
+		boolean::import_net(syntax.internal[i].to_string(), dst, tokens, true);
 
 	for (int i = 0; i < (int)syntax.arcs.size(); i++)
-		import_hse(syntax.arcs[i], result, ids, tokens);
+		import_hse(dst, syntax.arcs[i], ids, tokens);
 
 	for (int i = 0; i < (int)syntax.predicate.size(); i++)
 	{
 		map<string, hse::iterator>::iterator loc = ids.find(syntax.predicate[i].first.to_string());
 		if (loc != ids.end())
-			result.places[loc->second.index].predicate = boolean::import_cover(syntax.predicate[i].second, result, 0, tokens, false);
+			dst.places[loc->second.index].predicate = boolean::import_cover(syntax.predicate[i].second, dst, 0, tokens, false);
 		else if (tokens != NULL)
 		{
 			tokens->load(&syntax.predicate[i].first);
@@ -88,7 +87,7 @@ hse::graph import_hse(const parse_astg::graph &syntax, tokenizer *tokens)
 	{
 		map<string, hse::iterator>::iterator loc = ids.find(syntax.effective[i].first.to_string());
 		if (loc != ids.end())
-			result.places[loc->second.index].effective = boolean::import_cover(syntax.effective[i].second, result, 0, tokens, false);
+			dst.places[loc->second.index].effective = boolean::import_cover(syntax.effective[i].second, dst, 0, tokens, false);
 		else if (tokens != NULL)
 		{
 			tokens->load(&syntax.effective[i].first);
@@ -102,25 +101,23 @@ hse::graph import_hse(const parse_astg::graph &syntax, tokenizer *tokens)
 	{
 		hse::state rst;
 		if (syntax.marking[i].first.valid)
-			rst.encodings = boolean::import_cube(syntax.marking[i].first, result, 0, tokens, false);
+			rst.encodings = boolean::import_cube(syntax.marking[i].first, dst, 0, tokens, false);
 
 		for (int j = 0; j < (int)syntax.marking[i].second.size(); j++)
 		{
-			hse::iterator loc = import_hse(syntax.marking[i].second[j], result, ids, tokens);
+			hse::iterator loc = import_hse(dst, syntax.marking[i].second[j], ids, tokens);
 			if (loc.type == hse::place::type && loc.index >= 0)
 				rst.tokens.push_back(loc.index);
 		}
-		result.reset.push_back(rst);
+		dst.reset.push_back(rst);
 	}
 
 	for (int i = 0; i < (int)syntax.arbiter.size(); i++) {
-		hse::iterator loc = import_hse(syntax.arbiter[i], result, ids, tokens);
+		hse::iterator loc = import_hse(dst, syntax.arbiter[i], ids, tokens);
 		if (loc.type == hse::place::type and loc.index >= 0) {
-			result.places[loc.index].arbiter = true;
+			dst.places[loc.index].arbiter = true;
 		}
 	}
-
-	return result;
 }
 
 }

@@ -10,8 +10,8 @@
 
 namespace hse {
 
-hse::iterator import_hse(const parse_astg::node &syntax, hse::graph &g, tokenizer *token);
-void import_hse(const parse_astg::arc &syntax, hse::graph &g, tokenizer *tokens);
-hse::graph import_hse(const parse_astg::graph &syntax, tokenizer *tokens);
+hse::iterator import_hse(hse::graph &dst, const parse_astg::node &syntax, tokenizer *token);
+void import_hse(hse::graph &dst, const parse_astg::arc &syntax, tokenizer *tokens);
+void import_hse(hse::graph &dst, const parse_astg::graph &syntax, tokenizer *tokens);
 
 }
