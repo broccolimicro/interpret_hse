@@ -1,6 +1,6 @@
 NAME          = interpret_hse
 DEPEND        = interpret_boolean parse_expression parse_ucs parse_dot parse_cog parse_astg parse_chp petri hse boolean parse common
-TEST_DEPEND   = interpret_hse hse petri interpret_boolean parse_expression parse_dot parse_cog parse_astg parse_chp boolean parse_ucs parse common
+TEST_DEPEND   = hse petri interpret_boolean parse_expression parse_dot parse_cog parse_astg parse_chp boolean parse_ucs parse common
 
 COVERAGE ?= 0
 
