@@ -215,11 +215,17 @@ parse_dot::graph export_graph(const hse::graph &g, bool horiz, bool labels, bool
 		result.attributes.push_back(as);
 	}
 
-	for (int i = 0; i < (int)g.places.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, labels, notations, ghost, encodings));
+	for (int i = 0; i < (int)g.places.size(); i++) {
+		if (g.places.is_valid(i)) {
+			result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, labels, notations, ghost, encodings));
+		}
+	}
 
-	for (int i = 0; i < (int)g.transitions.size(); i++)
-		result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, labels, notations, ghost, encodings));
+	for (int i = 0; i < (int)g.transitions.size(); i++) {
+		if (g.transitions.is_valid(i)) {
+			result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, labels, notations, ghost, encodings));
+		}
+	}
 
 	for (int i = 0; i < 2; i++)
 		for (int j = 0; j < (int)g.arcs[i].size(); j++)
