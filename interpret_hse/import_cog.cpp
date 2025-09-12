@@ -151,6 +151,14 @@ segment import_segment(hse::graph &dst, const parse_cog::control &syntax, int de
 	segment result(true);
 	if (syntax.guard.valid and boolean::import_cover(syntax.guard, dst, default_id, tokens, auto_define) != 1) {
 		segment sub = import_segment(dst, syntax.guard, syntax.kind == "assume", default_id, tokens, auto_define);
+		if (syntax.kind == "if") {
+			if (tokens != NULL) {
+				tokens->load(&syntax);
+				tokens->error("if statements not supported in wire-level specifications", __FILE__, __LINE__);
+			} else {
+				error("", "if statements not supported in wire-level specifications", __FILE__, __LINE__);
+			}
+		}
 		result = compose(dst, petri::sequence, result, sub);
 	}
 	if (syntax.action.valid) {
