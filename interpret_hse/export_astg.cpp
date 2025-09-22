@@ -41,20 +41,22 @@ parse_astg::graph export_astg(const hse::graph &g)
 	}
 
 	// Add the predicates and effective predicates
-	for (int i = 0; i < (int)g.places.size(); i++)
-	{
-		if (!g.places[i].predicate.is_null())
+	for (int i = 0; i < (int)g.places.size(); i++) {
+		if (not g.places.is_valid(i)) continue;
+
+		if (not g.places[i].predicate.is_null())
 			result.predicate.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), boolean::export_expression(g.places[i].predicate, g)));
 
-		if (!g.places[i].effective.is_null())
+		if (not g.places[i].effective.is_null())
 			result.effective.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), boolean::export_expression(g.places[i].effective, g)));
 	}
 
 	// Add the arcs
 	map<hse::iterator, pair<parse_astg::node, parse_astg::node> > nodes;
 	vector<int> forks;
-	for (int i = 0; i < (int)g.transitions.size(); i++)
-	{
+	for (int i = 0; i < (int)g.transitions.size(); i++) {
+		if (not g.transitions.is_valid(i)) continue;
+
 		int curr = result.arcs.size();
 		result.arcs.push_back(parse_astg::arc());
 		pair<parse_astg::node, parse_astg::node> t0 = export_astg(result, g, hse::iterator(hse::transition::type, i), nodes, to_string(i), to_string(i));
@@ -110,6 +112,8 @@ parse_astg::graph export_astg(const hse::graph &g)
 
 	// Add the arbiters
 	for (int i = 0; i < (int)g.places.size(); i++) {
+		if (not g.places.is_valid(i)) continue;
+
 		if (g.places[i].arbiter) {
 			result.arbiter.push_back(parse_astg::node("p" + to_string(i)));
 		}
