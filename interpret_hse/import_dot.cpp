@@ -3,6 +3,7 @@
 
 #include <common/standard.h>
 #include <interpret_boolean/import.h>
+#include <parse_cog/expression.h>
 
 namespace hse {
 
@@ -118,11 +119,11 @@ void import_hse(const parse_dot::statement &syntax, hse::graph &g, map<string, m
 			if (attr != attributes.end() && attr != globals[syntax.statement_type].end() && attr->second.size() != 0)
 			{
 				tokenizer temp;
-				parse_expression::expression::register_syntax(temp);
+				parse_cog::expression::register_syntax(temp);
 				temp.insert(attr->first, attr->second);
 
 				tokenizer::level l = temp.increment(true);
-				temp.expect<parse_expression::expression>();
+				temp.expect<parse_cog::expression>();
 
 				temp.increment(false);
 				temp.expect("[");
@@ -139,7 +140,7 @@ void import_hse(const parse_dot::statement &syntax, hse::graph &g, map<string, m
 
 				if (temp.decrement(__FILE__, __LINE__))
 				{
-					parse_expression::expression exp(temp);
+					parse_cog::expression exp(temp);
 					c = boolean::import_cover(exp, g, 0, &temp, true);
 				}
 

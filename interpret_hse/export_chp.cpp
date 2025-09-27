@@ -1,9 +1,38 @@
 #include "export_chp.h"
-#include "export_expr.h"
 
 #include <interpret_boolean/export.h>
+#include <parse_chp/expression.h>
 
 namespace hse {
+
+parse_chp::composition export_parallel(boolean::cube c, ucs::ConstNetlist nets) {
+	parse_chp::composition result;
+	result.valid = true;
+
+	result.level = 2;//parse_chp::simple_composition::get_level(",");
+
+	for (int i = 0; i < (int)c.values.size()*16; i++) {
+		int val = c.get(i);
+		if (val != 2) {
+			result.branches.push_back(boolean::export_assignment<parse_chp::assignment>(i, val, nets));
+		}
+	}
+
+	return result;
+}
+
+parse_chp::control export_control(boolean::cover c, ucs::ConstNetlist nets) {
+	parse_chp::control result;
+	result.valid = true;
+
+	result.deterministic = false;
+
+	for (int i = 0; i < (int)c.cubes.size(); i++) {
+		result.branches.push_back(pair<parse_chp::expression, parse_chp::composition>(parse_chp::expression(), export_parallel(c.cubes[i], nets)));
+	}
+
+	return result;
+}
 
 parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::graph &g)
 {
@@ -21,7 +50,7 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 				parse_chp::control c;
 				c.valid = true;
 				c.branches.resize(1);
-				c.branches[0].first = boolean::export_expression(g.transitions[i[0].index].guard, g);
+				c.branches[0].first = boolean::export_expression<parse_chp::expression>(g.transitions[i[0].index].guard, g);
 				result.branches.push_back(parse_chp::branch(c));
 			}
 
@@ -29,7 +58,7 @@ parse_chp::composition export_sequence(vector<petri::iterator> &i, const hse::gr
 			{
 				vector<int> vars = g.transitions[i[0].index].local_action.cubes[0].vars();
 				if (vars.size() == 1)
-					result.branches.push_back(parse_chp::branch(boolean::export_assignment(vars[0], g.transitions[i[0].index].local_action.cubes[0].get(vars[0]), g)));
+					result.branches.push_back(parse_chp::branch(boolean::export_assignment<parse_chp::assignment>(vars[0], g.transitions[i[0].index].local_action.cubes[0].get(vars[0]), g)));
 				else
 					result.branches.push_back(parse_chp::branch(export_parallel(g.transitions[i[0].index].local_action.cubes[0], g)));
 			}
@@ -86,7 +115,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 	for (int j = 0; j < (int)i.size(); j++)
 	{
 		vector<petri::iterator> start(1, i[j]);
-		result.branches.push_back(pair<parse_expression::expression, parse_chp::composition>());
+		result.branches.push_back(pair<parse_chp::expression, parse_chp::composition>());
 		result.branches.back().second.valid = true;
 		parse_chp::composition s = export_sequence(start, g);
 		if (s.branches.size() > 0 && s.branches[0].ctrl.valid && s.branches[0].ctrl.branches.size() == 1 &&
@@ -96,7 +125,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 			s.branches.erase(s.branches.begin());
 		}
 		else
-			result.branches.back().first = boolean::export_expression(boolean::cover(boolean::cube()), g);
+			result.branches.back().first = boolean::export_expression<parse_chp::expression>(boolean::cover(boolean::cube()), g);
 
 		result.branches.back().second.branches.push_back(s);
 
@@ -197,7 +226,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 				new_head.level = 1;
 				new_head.valid = true;
 				new_head.start = nodes[j].index;
-				tmp.branches.push_back(pair<parse_expression::expression, parse_chp::composition>(parse_expression::expression(), new_head));
+				tmp.branches.push_back(pair<parse_chp::expression, parse_chp::composition>(parse_chp::expression(), new_head));
 
 				stack.back()->branches.push_back(parse_chp::branch(tmp));
 				stack.push_back(&stack.back()->branches.back().ctrl.branches.back().second);
@@ -219,9 +248,9 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 			{
 				vector<int> vars = g.transitions[nodes[j].index].local_action.cubes[0].vars();
 				if (vars.size() == 1)
-					stack.back()->branches.push_back(parse_chp::branch(export_assignment(vars[0], g.transitions[nodes[j].index].local_action.cubes[0].get(vars[0]), v)));
+					stack.back()->branches.push_back(parse_chp::branch(export_assignment<parse_chp::assignment>(vars[0], g.transitions[nodes[j].index].local_action.cubes[0].get(vars[0]), v)));
 				else
-					stack.back()->branches.push_back(parse_chp::branch(boolean::export_composition(g.transitions[nodes[j].index].local_action, v)));
+					stack.back()->branches.push_back(parse_chp::branch(boolean::export_composition<parse_chp::simple_composition>(g.transitions[nodes[j].index].local_action, v)));
 			}
 			else
 				stack.back()->branches.push_back(parse_chp::branch(export_control(g.transitions[nodes[j].index].local_action, v)));
@@ -236,7 +265,7 @@ parse_chp::control export_control(vector<petri::iterator> &i, const hse::graph &
 		else if (nodes[j].type == hse::transition::type && g.transitions[nodes[j].index].behavior == hse::transition::passive)
 		{
 			stack.back()->branches.push_back(parse_chp::branch(parse_chp::control()));
-			stack.back()->branches.back().ctrl.branches.push_back(pair<parse_expression::expression, parse_chp::composition>(boolean::export_expression_xfactor(g.transitions[nodes[j].index].local_action, v), parse_chp::composition()));
+			stack.back()->branches.back().ctrl.branches.push_back(pair<parse_chp::expression, parse_chp::composition>(boolean::export_expression_xfactor<parse_chp::expression>(g.transitions[nodes[j].index].local_action, v), parse_chp::composition()));
 
 			stack.back()->branches.back().ctrl.start = nodes[j].index;
 			stack.back()->branches.back().ctrl.end = nodes[j].index;

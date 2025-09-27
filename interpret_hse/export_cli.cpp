@@ -1,7 +1,6 @@
 #include "export_cli.h"
-#include "export_expr.h"
 
-#include <interpret_boolean/export.h>
+#include <hse/expression.h>
 
 namespace hse {
 
@@ -110,7 +109,7 @@ parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable
 				}
 				else
 					// if it isn't then we need to write our own guard.
-					c->branches[i].first = boolean::export_expression(boolean::cube(), v);
+					c->branches[i].first = hse::emit_expression(boolean::cube(), v);
 
 				// recurse
 				m.push_back(&c->branches[i].second);
@@ -196,9 +195,9 @@ string export_node(petri::iterator i, const hse::graph &g)
 				result += "[]...";
 
 			if (!g.transitions[pp[j].index].guard.is_tautology())
-				result += "[" + boolean::export_expression_xfactor(g.transitions[pp[j].index].guard, g).to_string() + "]; ";
+				result += "[" + hse::emit_expression_xfactor(g.transitions[pp[j].index].guard, g) + "]; ";
 			
-			result += boolean::export_composition(g.transitions[pp[j].index].local_action, g).to_string();
+			result += hse::emit_composition(g.transitions[pp[j].index].local_action, g);
 		}
 		if (pp.size() > 1) {
 			result += "]";
@@ -214,12 +213,12 @@ string export_node(petri::iterator i, const hse::graph &g)
 		result += "; <here> ";
 	} else {
 		if (not g.transitions[i.index].guard.is_tautology()) {
-			result += ";[" + boolean::export_expression_xfactor(g.transitions[i.index].guard, g).to_string() + "]; <here> ";
+			result += ";[" + hse::emit_expression_xfactor(g.transitions[i.index].guard, g) + "]; <here> ";
 		} else {
 			result += "; <here> ";
 		}
 
-		result +=  boolean::export_composition(g.transitions[i.index].local_action, g).to_string() + ";";
+		result +=  hse::emit_composition(g.transitions[i.index].local_action, g) + ";";
 	}
 
 
@@ -241,11 +240,11 @@ string export_node(petri::iterator i, const hse::graph &g)
 				result += "...[]";
 
 			if (!g.transitions[nn[j].index].guard.is_tautology())
-				result += boolean::export_expression_xfactor(g.transitions[nn[j].index].guard, g).to_string() + "->";
+				result += hse::emit_expression_xfactor(g.transitions[nn[j].index].guard, g) + "->";
 			else
 				result += "1->";
 			
-			result += boolean::export_composition(g.transitions[nn[j].index].local_action, g).to_string();
+			result += hse::emit_composition(g.transitions[nn[j].index].local_action, g);
 		}
 		if (nn.size() > 1) {
 			result += "...]";

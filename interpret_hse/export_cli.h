@@ -1,5 +1,6 @@
 #pragma once
 
+#include <hse/graph.h>
 #include <hse/encoder.h>
 
 namespace hse {

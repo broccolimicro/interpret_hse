@@ -11,8 +11,8 @@ pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, co
 		if (pos.type == hse::transition::type) {
 			pair<parse_astg::node, parse_astg::node> inout;
 
-			parse_expression::expression guard = boolean::export_expression(g.transitions[pos.index].guard, g);
-			parse_expression::composition action = boolean::export_composition(g.transitions[pos.index].local_action, g);
+			parse_astg::expression guard = boolean::export_expression<parse_astg::expression>(g.transitions[pos.index].guard, g);
+			parse_astg::composition action = boolean::export_composition<parse_astg::composition>(g.transitions[pos.index].local_action, g);
 			inout.first = parse_astg::node(guard, action, tlabel);
 			inout.second = inout.first;
 
@@ -37,7 +37,7 @@ parse_astg::graph export_astg(const hse::graph &g)
 
 	// Add the variables
 	for (int i = 0; i < (int)g.nets.size(); i++) {
-		result.internal.push_back(boolean::export_net(i, g));
+		result.internal.push_back(boolean::export_net<parse_astg::expression>(i, g));
 	}
 
 	// Add the predicates and effective predicates
@@ -45,10 +45,10 @@ parse_astg::graph export_astg(const hse::graph &g)
 		if (not g.places.is_valid(i)) continue;
 
 		if (not g.places[i].predicate.is_null())
-			result.predicate.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), boolean::export_expression(g.places[i].predicate, g)));
+			result.predicate.push_back(pair<parse_astg::node, parse_astg::expression>(parse_astg::node("p" + to_string(i)), boolean::export_expression<parse_astg::expression>(g.places[i].predicate, g)));
 
 		if (not g.places[i].effective.is_null())
-			result.effective.push_back(pair<parse_astg::node, parse_expression::expression>(parse_astg::node("p" + to_string(i)), boolean::export_expression(g.places[i].effective, g)));
+			result.effective.push_back(pair<parse_astg::node, parse_astg::expression>(parse_astg::node("p" + to_string(i)), boolean::export_expression<parse_astg::expression>(g.places[i].effective, g)));
 	}
 
 	// Add the arcs
@@ -104,8 +104,8 @@ parse_astg::graph export_astg(const hse::graph &g)
 	// Add the initial markings
 	for (int i = 0; i < (int)g.reset.size(); i++)
 	{
-		result.marking.push_back(pair<parse_expression::composition, vector<parse_astg::node> >());
-		result.marking.back().first = boolean::export_composition(g.reset[i].encodings, g);
+		result.marking.push_back(pair<parse_astg::composition, vector<parse_astg::node> >());
+		result.marking.back().first = boolean::export_composition<parse_astg::composition>(g.reset[i].encodings, g);
 		for (int j = 0; j < (int)g.reset[i].tokens.size(); j++)
 			result.marking.back().second.push_back(parse_astg::node("p" + to_string(g.reset[i].tokens[j].index)));
 	}
