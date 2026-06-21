@@ -1,6 +1,7 @@
 #include "export_astg.h"
 
 #include <interpret_boolean/export.h>
+#include <parse_astg/expression.h>
 
 namespace hse {
 
@@ -29,8 +30,9 @@ pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &astg, co
 	return loc->second;
 }
 
-parse_astg::graph export_astg(const hse::graph &g)
-{
+parse_astg::graph export_astg(const hse::graph &g) {
+	parse_astg::setup_expressions();
+
 	parse_astg::graph result;
 
 	result.name = "hse";
