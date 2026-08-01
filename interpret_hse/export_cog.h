@@ -1,13 +1,14 @@
 #pragma once
 
-#include <hse/graph.h>
+#include <parse_cog/composition.h>
+#include <parse_cog/control.h>
 
-#include <parse_astg/graph.h>
-#include <parse_astg/expression.h>
+#include <hse/graph.h>
+#include <common/net.h>
 
 #include <interpret_boolean/export.h>
 
-namespace parse_astg {
+namespace parse_cog {
 
 struct BooleanExpressionExporter : boolean::ExpressionExporter {
 	ucs::ConstNetlist nets;
@@ -49,9 +50,14 @@ parse_expression::expression export_composition_xfactor(boolean::cover expr, ucs
 parse_expression::expression export_composition_hfactor(boolean::cover expr, ucs::ConstNetlist nets);
 
 
+parse_cog::composition export_parallel(boolean::cube c, ucs::ConstNetlist nets);
+parse_cog::composition export_choice(boolean::cover c, ucs::ConstNetlist nets);
+parse_cog::composition export_sequence(vector<petri::iterator> &i, const hse::graph &g);
+parse_cog::composition export_parallel(vector<petri::iterator> &i, const hse::graph &g);
+parse_cog::control export_control(vector<petri::iterator> &i, const hse::graph &g);
 
-pair<parse_astg::node, parse_astg::node> export_astg(parse_astg::graph &g, parse_astg::composition c, string label);
-parse_astg::graph export_astg(const hse::graph &g);
-void export_astg(string path, const hse::graph &g);
+/*parse_cog::composition export_sequence(vector<hse::iterator> &i, const hse::graph &g);
+parse_cog::composition export_parallel(vector<hse::iterator> &i, const hse::graph &g);
+parse_cog::control export_control(vector<hse::iterator> &i, const hse::graph &g);*/
 
 }

@@ -1,7 +1,6 @@
 #include "export_dot.h"
 
 #include <common/standard.h>
-#include <hse/expression.h>
 
 namespace hse {
 
@@ -91,14 +90,14 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 				exp.hide(g.ghost_nets);
 				exp.minimize();
 			}
-			encoding.second = line_wrap(hse::emit_expression_hfactor(exp, g), 80);
+			encoding.second = line_wrap(exp.to_string_hfactor(g), 80);
 		} else if (encodings > 0) {
 			boolean::cover exp = g.places[i.index].effective;
 			if (not ghost) {
 				exp.hide(g.ghost_nets);
 				exp.minimize();
 			}
-			encoding.second = line_wrap(hse::emit_expression_hfactor(exp, g), 80);
+			encoding.second = line_wrap(exp.to_string_hfactor(g), 80);
 		} else {
 			encoding.second = "";
 		}
@@ -131,12 +130,12 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 		bool a_vacuous = g.transitions[i.index].local_action.is_tautology();
 
 		if (!g_vacuous && !a_vacuous) {
-			action.second = hse::emit_expression_xfactor(g.transitions[i.index].guard, g) + " -> " +
-				hse::emit_composition(g.transitions[i.index].local_action, g);
+			action.second = g.transitions[i.index].guard.to_string_xfactor(g) + " -> " +
+				g.transitions[i.index].local_action.to_action(g);
 		} else if (!g_vacuous) {
-			action.second = hse::emit_expression_xfactor(g.transitions[i.index].guard, g) + " -> skip";
+			action.second = g.transitions[i.index].guard.to_string_xfactor(g) + " -> skip";
 		} else {
-			action.second = hse::emit_composition(g.transitions[i.index].local_action, g);
+			action.second = g.transitions[i.index].local_action.to_action(g);
 		}
 
 		if (notations) {

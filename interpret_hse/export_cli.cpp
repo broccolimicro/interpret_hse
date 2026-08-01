@@ -1,8 +1,8 @@
 #include "export_cli.h"
 
-#include <hse/expression.h>
+#include "export_chp.h"
 
-namespace hse {
+namespace parse_chp {
 
 /*// TODO this doesn't know how to handle non-deterministic choice yet.
 // The result is that all non-deterministic conditionals are converted to deterministic ones.
@@ -109,7 +109,7 @@ parse_hse::parallel export_parallel(const hse::graph &g, const boolean::variable
 				}
 				else
 					// if it isn't then we need to write our own guard.
-					c->branches[i].first = hse::emit_expression(boolean::cube(), v);
+					c->branches[i].first = export_expression(boolean::cube(), v);
 
 				// recurse
 				m.push_back(&c->branches[i].second);
@@ -195,9 +195,9 @@ string export_node(petri::iterator i, const hse::graph &g)
 				result += "[]...";
 
 			if (!g.transitions[pp[j].index].guard.is_tautology())
-				result += "[" + hse::emit_expression_xfactor(g.transitions[pp[j].index].guard, g) + "]; ";
+				result += "[" + g.transitions[pp[j].index].guard.to_string_xfactor(g) + "]; ";
 			
-			result += hse::emit_composition(g.transitions[pp[j].index].local_action, g);
+			result += g.transitions[pp[j].index].local_action.to_action(g);
 		}
 		if (pp.size() > 1) {
 			result += "]";
@@ -213,12 +213,12 @@ string export_node(petri::iterator i, const hse::graph &g)
 		result += "; <here> ";
 	} else {
 		if (not g.transitions[i.index].guard.is_tautology()) {
-			result += ";[" + hse::emit_expression_xfactor(g.transitions[i.index].guard, g) + "]; <here> ";
+			result += ";[" + g.transitions[i.index].guard.to_string_xfactor(g) + "]; <here> ";
 		} else {
 			result += "; <here> ";
 		}
 
-		result +=  hse::emit_composition(g.transitions[i.index].local_action, g) + ";";
+		result +=  g.transitions[i.index].local_action.to_action(g) + ";";
 	}
 
 
@@ -240,11 +240,11 @@ string export_node(petri::iterator i, const hse::graph &g)
 				result += "...[]";
 
 			if (!g.transitions[nn[j].index].guard.is_tautology())
-				result += hse::emit_expression_xfactor(g.transitions[nn[j].index].guard, g) + "->";
+				result += g.transitions[nn[j].index].guard.to_string_xfactor(g) + "->";
 			else
-				result += "1->";
+				result += "vdd->";
 			
-			result += hse::emit_composition(g.transitions[nn[j].index].local_action, g);
+			result += g.transitions[nn[j].index].local_action.to_action(g);
 		}
 		if (nn.size() > 1) {
 			result += "...]";

@@ -1,9 +1,9 @@
 #include "import_dot.h"
-#include "import_expr.h"
 
 #include <common/standard.h>
-#include <interpret_boolean/import.h>
+#include <interpret_boolean/import_default.h>
 #include <parse_cog/expression.h>
+#include "import_cog.h"
 
 namespace hse {
 
@@ -141,7 +141,7 @@ void import_hse(const parse_dot::statement &syntax, hse::graph &g, map<string, m
 				if (temp.decrement(__FILE__, __LINE__))
 				{
 					parse_cog::expression exp(temp);
-					c = boolean::import_cover(exp, g, 0, &temp, true);
+					c = parse_cog::import_cover(exp, g, &temp, 0, true);
 				}
 
 				if (is_guard && temp.decrement(__FILE__, __LINE__))

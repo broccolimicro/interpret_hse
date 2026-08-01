@@ -3,7 +3,7 @@
 #include <hse/graph.h>
 #include <hse/encoder.h>
 
-namespace hse {
+namespace parse_chp {
 
 /*parse_hse::parallel export_parallel(const hse::graph &g);*/
 string export_node(petri::iterator i, const hse::graph &g);
