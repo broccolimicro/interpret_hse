@@ -54,7 +54,7 @@ TEST(CogImport, BasicSequence) {
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);  // a and b
 	EXPECT_GE(g.transitions.size(), 4u);  // a+, b+, a-, b-
-	
+
 	int a = g.netIndex("a'1");
 	int b = g.netIndex("b'1");
 	EXPECT_GE(a, 0);

@@ -55,6 +55,10 @@ std::string BooleanExpressionImporter::import_term(const parse_expression::expre
 		return "gnd";
 	} else if (type == "literal") {
 		return syntax.ptr->get<literal>().name;
+	} else if (type == "label") {
+		return syntax.ptr->get<label>().value;
+	} else if (type == "ident") {
+		return syntax.ptr->get<ident>().value;
 	}
 	internal("", "unsupported literal type '" + type + "'", __FILE__, __LINE__);
 	return "gnd";
@@ -172,6 +176,9 @@ boolean::cube BooleanCompositionImporter::import_assignment(const assignment &sy
 	}
 
 	std::string lval = in.import_lvalue(syntax.left[0], tokens);
+	if (region.back() != 0) {
+		lval += "'" + std::to_string(region.back());
+	}
 	int uid = boolean::import_net(lval, symbols, tokens, autoDefine);
 	if (uid < 0) {
 		return boolean::cube();
