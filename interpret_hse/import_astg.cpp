@@ -17,7 +17,7 @@ BooleanExpressionImporter::~BooleanExpressionImporter() {
 boolean::cover BooleanExpressionImporter::L_to_T(std::string lval, tokenizer *tokens) const {
 	if (lval == "vdd") {
 		return boolean::cover(1);
-	} else if (lval == "gnd") {
+	} else if (lval == "gnd" or lval == "undef") {
 		return boolean::cover();
 	}
 	if (region.back() != 0) {
@@ -47,17 +47,33 @@ std::string BooleanExpressionImporter::import_term(const parse_expression::expre
 	std::string type = expression_config::cfg->literals[syntax.type].first;
 
 	if (type == "constant") {
+		if (not syntax.ptr->is_a<constant>()) {
+			internal("", "mismatched constant type", __FILE__, __LINE__);
+			return "gnd";
+		}
 		std::string value = syntax.ptr->get<constant>().value;
-		if (value == "vdd" or value == "gnd") {
+		if (value == "vdd" or value == "gnd" or value == "undef") {
 			return value;
 		}
 		error("", "unrecognized constant value, expected 'vdd' or 'gnd'", __FILE__, __LINE__);
 		return "gnd";
 	} else if (type == "literal") {
+		if (not syntax.ptr->is_a<literal>()) {
+			internal("", "mismatched literal type", __FILE__, __LINE__);
+			return "gnd";
+		}
 		return syntax.ptr->get<literal>().name;
 	} else if (type == "label") {
+		if (not syntax.ptr->is_a<label>()) {
+			internal("", "mismatched label type", __FILE__, __LINE__);
+			return "gnd";
+		}
 		return syntax.ptr->get<label>().value;
 	} else if (type == "ident") {
+		if (not syntax.ptr->is_a<ident>()) {
+			internal("", "mismatched ident type", __FILE__, __LINE__);
+			return "gnd";
+		}
 		return syntax.ptr->get<ident>().value;
 	}
 	internal("", "unsupported literal type '" + type + "'", __FILE__, __LINE__);
@@ -299,7 +315,7 @@ hse::iterator import_hse(hse::graph &dst, const parse_astg::node &syntax, map<st
 		boolean::cover guard = 1;
 		boolean::cover action = 1;
 		if (syntax.guard.valid) {
-			guard = import_cover(syntax.guard, dst, tokens, 0, false);
+			guard = parse_astg::import_cover(syntax.guard, dst, tokens, 0, false);
 		}
 		if (syntax.assign.valid) {
 			action = import_boolean_choice(syntax.assign, dst, tokens, 0, false);
@@ -342,7 +358,7 @@ void import_hse(hse::graph &dst, const parse_astg::graph &syntax, tokenizer *tok
 	{
 		map<string, hse::iterator>::iterator loc = ids.find(syntax.predicate[i].first.to_string());
 		if (loc != ids.end())
-			dst.places[loc->second.index].predicate = import_cover(syntax.predicate[i].second, dst, tokens, 0, false);
+			dst.places[loc->second.index].predicate = parse_astg::import_cover(syntax.predicate[i].second, dst, tokens, 0, false);
 		else if (tokens != NULL)
 		{
 			tokens->load(&syntax.predicate[i].first);
@@ -356,7 +372,7 @@ void import_hse(hse::graph &dst, const parse_astg::graph &syntax, tokenizer *tok
 	{
 		map<string, hse::iterator>::iterator loc = ids.find(syntax.effective[i].first.to_string());
 		if (loc != ids.end())
-			dst.places[loc->second.index].effective = import_cover(syntax.effective[i].second, dst, tokens, 0, false);
+			dst.places[loc->second.index].effective = parse_astg::import_cover(syntax.effective[i].second, dst, tokens, 0, false);
 		else if (tokens != NULL)
 		{
 			tokens->load(&syntax.effective[i].first);
@@ -370,7 +386,7 @@ void import_hse(hse::graph &dst, const parse_astg::graph &syntax, tokenizer *tok
 	{
 		hse::state rst;
 		if (syntax.marking[i].first.valid)
-			rst.encodings = import_cube(syntax.marking[i].first, dst, tokens, 0, false);
+			rst.encodings = parse_astg::import_boolean_parallel(syntax.marking[i].first, dst, tokens, 0, false);
 
 		for (int j = 0; j < (int)syntax.marking[i].second.size(); j++)
 		{
