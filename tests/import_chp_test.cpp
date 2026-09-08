@@ -40,6 +40,7 @@ hse::graph load_hse_string(string input) {
 // Test basic sequence import (a+; b+; a-; b-)
 TEST(ChpImport, Sequence) {
 	hse::graph g = load_hse_string("a+; b+; c-; d-");
+	petri::CompositionAnalysis comp(g.adjacency());
 
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 4);
@@ -63,14 +64,15 @@ TEST(ChpImport, Sequence) {
 	ASSERT_EQ(a0.size(), 1u);
 	ASSERT_EQ(b0.size(), 1u);
 
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
-	EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], a0[0]));
+	EXPECT_TRUE(comp.isSequence(a0[0], b0[0]));
 }
 
 // Test parallel composition import ((a+, b+); (a-, b-))
 TEST(ChpImport, Parallel) {
 	hse::graph g = load_hse_string("(a+, b+); (a-, b-)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);
@@ -94,19 +96,20 @@ TEST(ChpImport, Parallel) {
 	ASSERT_EQ(sp.size(), 1u);
 
 	// Verify parallel structure - a+ and b+ should be concurrent
-	EXPECT_TRUE(g.is_parallel(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_parallel(a0[0], b0[0]));
+	EXPECT_TRUE(comp.isParallel(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isParallel(a0[0], b0[0]));
 	
 	// Verify sequencing - first parallel group completes before second group
-	EXPECT_TRUE(g.is_sequence(a1[0], sp[0]));
-	EXPECT_TRUE(g.is_sequence(sp[0], a0[0]));
-	EXPECT_TRUE(g.is_sequence(b1[0], sp[0]));
-	EXPECT_TRUE(g.is_sequence(sp[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], sp[0]));
+	EXPECT_TRUE(comp.isSequence(sp[0], a0[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], sp[0]));
+	EXPECT_TRUE(comp.isSequence(sp[0], b0[0]));
 }
 
 // Test selection import ([c -> a+; a- [] ~c -> b+; b-])
 TEST(ChpImport, Selection) {
 	hse::graph g = load_hse_string("[c -> a+; a- [] ~c -> b+; b-]");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 3);  // a, b, and c
@@ -134,21 +137,22 @@ TEST(ChpImport, Selection) {
 	ASSERT_EQ(c0.size(), 1u);
 	
 	// Verify selection structure (no path between a+ and b+)
-	EXPECT_TRUE(g.is_choice(c1[0], c0[0]));
-	EXPECT_TRUE(g.is_choice(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_choice(a0[0], b0[0]));
+	EXPECT_TRUE(comp.isChoice(c1[0], c0[0]));
+	EXPECT_TRUE(comp.isChoice(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isChoice(a0[0], b0[0]));
 	
 	// Verify each branch internal sequencing
-	EXPECT_TRUE(g.is_sequence(c1[0], a1[0]));
-	EXPECT_TRUE(g.is_sequence(a1[0], a0[0]));
+	EXPECT_TRUE(comp.isSequence(c1[0], a1[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], a0[0]));
 
-	EXPECT_TRUE(g.is_sequence(c0[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(b1[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(c0[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], b0[0]));
 }
 
 // Test loop import (*[a+; b+; a-; b-])
 TEST(ChpImport, Loop) {
 	hse::graph g = load_hse_string("*[a+; b+; a-; b-]");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);
@@ -170,15 +174,16 @@ TEST(ChpImport, Loop) {
 	ASSERT_EQ(b0.size(), 1u);
 	
 	// Verify cycle: should be able to go from any transition back to itself
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
-	EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
-	EXPECT_TRUE(g.is_sequence(b0[0], a1[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], a0[0]));
+	EXPECT_TRUE(comp.isSequence(a0[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(b0[0], a1[0]));
 }
 
 // Test more complex expressions with composition
 TEST(ChpImport, ComplexComposition) {
 	hse::graph g = load_hse_string("(a+; b+) || (c+; d+)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 4);  // a, b, c, d
@@ -204,19 +209,20 @@ TEST(ChpImport, ComplexComposition) {
 	ASSERT_EQ(d1.size(), 1u);
 	
 	// Verify sequence within each composition
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(c1[0], d1[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(c1[0], d1[0]));
 	
 	// Verify independence between compositions
-	EXPECT_TRUE(g.is_parallel(a1[0], c1[0]));
-	EXPECT_TRUE(g.is_parallel(c1[0], a1[0]));
-	EXPECT_TRUE(g.is_parallel(b1[0], d1[0]));
-	EXPECT_TRUE(g.is_parallel(d1[0], b1[0]));
+	EXPECT_TRUE(comp.isParallel(a1[0], c1[0]));
+	EXPECT_TRUE(comp.isParallel(c1[0], a1[0]));
+	EXPECT_TRUE(comp.isParallel(b1[0], d1[0]));
+	EXPECT_TRUE(comp.isParallel(d1[0], b1[0]));
 }
 
 // Test nested control structures
 TEST(ChpImport, NestedControls) {
 	hse::graph g = load_hse_string("*[[a -> b+; b- [] ~a -> c+; (d+, e+); c-; (d-, e-)]]");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_GT(g.netCount(), 4);  // a, b, c, d, e
@@ -256,16 +262,16 @@ TEST(ChpImport, NestedControls) {
 	ASSERT_EQ(a1.size(), 1u);
 	
 	// Verify loops - all transitions should be part of a cycle
-	EXPECT_TRUE(g.is_sequence(b1[0], b0[0]));
-	EXPECT_TRUE(g.is_sequence(c1[0], d1[0]));
-	EXPECT_TRUE(g.is_sequence(c1[0], e1[0]));
-	EXPECT_TRUE(g.is_sequence(d1[0], c0[0]));
-	EXPECT_TRUE(g.is_sequence(e1[0], c0[0]));
-	EXPECT_TRUE(g.is_sequence(c0[0], d0[0]));
-	EXPECT_TRUE(g.is_sequence(c0[0], e0[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(c1[0], d1[0]));
+	EXPECT_TRUE(comp.isSequence(c1[0], e1[0]));
+	EXPECT_TRUE(comp.isSequence(d1[0], c0[0]));
+	EXPECT_TRUE(comp.isSequence(e1[0], c0[0]));
+	EXPECT_TRUE(comp.isSequence(c0[0], d0[0]));
+	EXPECT_TRUE(comp.isSequence(c0[0], e0[0]));
 
-	EXPECT_TRUE(g.is_sequence(b0[0], a1[0]));
+	EXPECT_TRUE(comp.isSequence(b0[0], a1[0]));
 
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(a0[0], c1[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(a0[0], c1[0]));
 } 

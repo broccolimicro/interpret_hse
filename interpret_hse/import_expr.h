@@ -13,6 +13,6 @@ struct segment {
 	boolean::cover cond;
 };
 
-segment compose(hse::graph &dst, int composition, segment s0, segment s1);
+segment compose(hse::graph &dst, petri::Composition composition, segment s0, segment s1);
 
 }

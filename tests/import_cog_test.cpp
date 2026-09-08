@@ -50,6 +50,7 @@ TEST(CogImport, BasicSequence) {
 			b-
 		}
 	)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);  // a and b
@@ -71,9 +72,9 @@ TEST(CogImport, BasicSequence) {
 	ASSERT_FALSE(b0.empty());
 	
 	// Verify sequence: a+ -> b+ -> a- -> b-
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
-	EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], a0[0]));
+	EXPECT_TRUE(comp.isSequence(a0[0], b0[0]));
 }
 
 // Test parallel composition
@@ -87,6 +88,7 @@ TEST(CogImport, ParallelComposition) {
 			d+
 		}
 	)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 4);  // a, b, c, d
@@ -112,14 +114,14 @@ TEST(CogImport, ParallelComposition) {
 	ASSERT_FALSE(d1.empty());
 	
 	// Verify sequencing within each branch
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(c1[0], d1[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(c1[0], d1[0]));
 	
 	// Verify parallelism between branches
-	EXPECT_TRUE(g.is_parallel(a1[0], c1[0]));
-	EXPECT_TRUE(g.is_parallel(a1[0], d1[0]));
-	EXPECT_TRUE(g.is_parallel(b1[0], c1[0]));
-	EXPECT_TRUE(g.is_parallel(b1[0], d1[0]));
+	EXPECT_TRUE(comp.isParallel(a1[0], c1[0]));
+	EXPECT_TRUE(comp.isParallel(a1[0], d1[0]));
+	EXPECT_TRUE(comp.isParallel(b1[0], c1[0]));
+	EXPECT_TRUE(comp.isParallel(b1[0], d1[0]));
 }
 
 // Test conditional waiting
@@ -133,6 +135,7 @@ TEST(CogImport, ConditionalWaiting) {
 			}
 		}
 	)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 3);  // a, b, c
@@ -155,12 +158,12 @@ TEST(CogImport, ConditionalWaiting) {
 	ASSERT_FALSE(a1.empty());
 	ASSERT_FALSE(a0.empty());
 	
-		EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-		EXPECT_TRUE(g.is_sequence(a0[0], c1[0]));
-		EXPECT_TRUE(g.is_choice(a1[0], a0[0]));
-		EXPECT_TRUE(g.is_choice(a1[0], c1[0]));
-		EXPECT_TRUE(g.is_choice(a0[0], b1[0]));
-		EXPECT_TRUE(g.is_choice(c1[0], b1[0]));
+		EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+		EXPECT_TRUE(comp.isSequence(a0[0], c1[0]));
+		EXPECT_TRUE(comp.isChoice(a1[0], a0[0]));
+		EXPECT_TRUE(comp.isChoice(a1[0], c1[0]));
+		EXPECT_TRUE(comp.isChoice(a0[0], b1[0]));
+		EXPECT_TRUE(comp.isChoice(c1[0], b1[0]));
 }
 
 // Test while loop
@@ -175,6 +178,7 @@ TEST(CogImport, WhileLoop) {
 			}
 		}
 	)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);  // a and b
@@ -196,10 +200,10 @@ TEST(CogImport, WhileLoop) {
 	ASSERT_FALSE(b0.empty());
 	
 	// Verify cycle: should be able to go from any transition back to itself
-	EXPECT_TRUE(g.is_sequence(b0[0], a1[0]));
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
-	EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(b0[0], a1[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], a0[0]));
+	EXPECT_TRUE(comp.isSequence(a0[0], b0[0]));
 }
 
 // Test COG-specific 'await' construct
@@ -212,6 +216,7 @@ TEST(CogImport, AwaitConstruct) {
 			await ~b
 		}
 	)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 2);  // a and b
@@ -233,9 +238,9 @@ TEST(CogImport, AwaitConstruct) {
 	ASSERT_EQ(b0.size(), 1u);
 	
 	// a+ and a- should be sequenced
-	EXPECT_TRUE(g.is_sequence(a1[0], b1[0]));
-	EXPECT_TRUE(g.is_sequence(b1[0], a0[0]));
-	EXPECT_TRUE(g.is_sequence(a0[0], b0[0]));
+	EXPECT_TRUE(comp.isSequence(a1[0], b1[0]));
+	EXPECT_TRUE(comp.isSequence(b1[0], a0[0]));
+	EXPECT_TRUE(comp.isSequence(a0[0], b0[0]));
 }
 
 // Test WCHB buffer from example
@@ -275,6 +280,7 @@ TEST(CogImport, WCHB1bBuffer) {
 			}
 		}
 	)");
+	petri::CompositionAnalysis comp(g.adjacency());
 	
 	// Verify the graph structure
 	EXPECT_EQ(g.netCount(), 12);  // L.e, L.f, L.t, R.e, R.f, R.t
@@ -316,14 +322,14 @@ TEST(CogImport, WCHB1bBuffer) {
 	ASSERT_EQ(rt1.size(), 1u);
 	ASSERT_EQ(rt0.size(), 2u);
 	
-	EXPECT_TRUE(g.is_sequence(lf1[0], rf1[0]));
-	EXPECT_TRUE(g.is_sequence(lt1[0], rt1[0]));
-	EXPECT_TRUE(g.is_choice(lf1[0], lt1[0]));
-	EXPECT_TRUE(g.is_sequence(le0[0], lft0[0]));
-	EXPECT_TRUE(g.is_sequence(lft0[0], rf0[1]));
-	EXPECT_TRUE(g.is_sequence(lft0[0], rt0[1]));
-	EXPECT_TRUE(g.is_parallel(rf0[1], rt0[1]));
-	EXPECT_TRUE(g.is_sequence(rf0[1], le1[1]));
-	EXPECT_TRUE(g.is_sequence(rt0[1], le1[1]));
+	EXPECT_TRUE(comp.isSequence(lf1[0], rf1[0]));
+	EXPECT_TRUE(comp.isSequence(lt1[0], rt1[0]));
+	EXPECT_TRUE(comp.isChoice(lf1[0], lt1[0]));
+	EXPECT_TRUE(comp.isSequence(le0[0], lft0[0]));
+	EXPECT_TRUE(comp.isSequence(lft0[0], rf0[1]));
+	EXPECT_TRUE(comp.isSequence(lft0[0], rt0[1]));
+	EXPECT_TRUE(comp.isParallel(rf0[1], rt0[1]));
+	EXPECT_TRUE(comp.isSequence(rf0[1], le1[1]));
+	EXPECT_TRUE(comp.isSequence(rt0[1], le1[1]));
 }
 

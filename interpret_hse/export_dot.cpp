@@ -12,7 +12,7 @@ parse_dot::node_id export_node_id(const petri::iterator &i)
 	return result;
 }
 
-parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, bool labels, bool notations, bool ghost, int encodings)
+parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse::graph &g, const petri::CompositionAnalysis &comp, bool labels, bool ghost, int encodings)
 {
 	parse_dot::attribute_list result;
 	result.valid = true;
@@ -54,7 +54,7 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 			marked.second = "filled";
 
 			sub_result.as.push_back(marked);
-			if (encodings < 0 && !notations) {
+			if (encodings < 0 and comp.empty()) {
 				parse_dot::assignment color;
 				color.valid = true;
 				color.first = "fillcolor";
@@ -102,16 +102,16 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 			encoding.second = "";
 		}
 
-		if (notations) {
+		if (not comp.empty()) {
 			if (encoding.second != "") {
 				encoding.second += "\n";
 			}
 			encoding.second += "[";
-			for (int j = 0; j < (int)g.places[i.index].splits[petri::parallel].size(); j++) {
+			for (int j = 0; j < (int)comp.places[i.index].splits[petri::PARALLEL].size(); j++) {
 				if (j != 0) {
 					encoding.second += ",";
 				}
-				encoding.second += g.places[i.index].splits[petri::parallel][j].to_string();
+				encoding.second += comp.places[i.index].splits[petri::PARALLEL][j].to_string();
 			}
 			encoding.second += "]";
 		}
@@ -138,16 +138,16 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 			action.second = g.transitions[i.index].local_action.to_action(g);
 		}
 
-		if (notations) {
+		if (not comp.empty()) {
 			if (action.second != "") {
 				action.second += "\n";
 			}
 			action.second += "[";
-			for (int j = 0; j < (int)g.transitions[i.index].splits[petri::parallel].size(); j++) {
+			for (int j = 0; j < (int)comp.transitions[i.index].splits[petri::PARALLEL].size(); j++) {
 				if (j != 0) {
 					action.second += ",";
 				}
-				action.second += g.transitions[i.index].splits[petri::parallel][j].to_string();
+				action.second += comp.transitions[i.index].splits[petri::PARALLEL][j].to_string();
 			}
 			action.second += "]";
 		}
@@ -166,13 +166,13 @@ parse_dot::attribute_list export_attribute_list(const hse::iterator i, const hse
 	return result;
 }
 
-parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, bool labels, bool notations, bool ghost, int encodings)
+parse_dot::statement export_statement(const hse::iterator &i, const hse::graph &g, const petri::CompositionAnalysis &comp, bool labels, bool ghost, int encodings)
 {
 	parse_dot::statement result;
 	result.valid = true;
 	result.statement_type = "node";
 	result.nodes.push_back(new parse_dot::node_id(export_node_id(i)));
-	result.attributes = export_attribute_list(i, g, labels, notations, ghost, encodings);
+	result.attributes = export_attribute_list(i, g, comp, labels, ghost, encodings);
 	return result;
 }
 
@@ -201,6 +201,11 @@ parse_dot::statement export_statement(const pair<int, int> &a, const hse::graph 
 
 parse_dot::graph export_graph(const hse::graph &g, bool horiz, bool labels, bool notations, bool ghost, int encodings)
 {
+	petri::CompositionAnalysis comp;
+	if (notations) {
+		comp.build(g.adjacency());
+	}
+
 	parse_dot::graph result;
 	result.valid = true;
 	result.id = "hse";
@@ -216,13 +221,13 @@ parse_dot::graph export_graph(const hse::graph &g, bool horiz, bool labels, bool
 
 	for (int i = 0; i < (int)g.places.size(); i++) {
 		if (g.places.is_valid(i)) {
-			result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, labels, notations, ghost, encodings));
+			result.statements.push_back(export_statement(hse::iterator(hse::place::type, i), g, comp, labels, ghost, encodings));
 		}
 	}
 
 	for (int i = 0; i < (int)g.transitions.size(); i++) {
 		if (g.transitions.is_valid(i)) {
-			result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, labels, notations, ghost, encodings));
+			result.statements.push_back(export_statement(hse::iterator(hse::transition::type, i), g, comp, labels, ghost, encodings));
 		}
 	}
 

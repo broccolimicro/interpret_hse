@@ -302,19 +302,19 @@ hse::segment import_segment(hse::graph &dst, const parse_cog::composition &synta
 	bool arbiter = false;
 	bool synchronizer = false;
 
-	int composition = petri::parallel;
+	petri::Composition composition = petri::PARALLEL;
 	if (syntax.level == parse_cog::composition::SEQUENCE or syntax.level == parse_cog::composition::INTERNAL_SEQUENCE) {
-		composition = petri::sequence;
+		composition = petri::SEQUENCE;
 	} else if (syntax.level == parse_cog::composition::CONDITION) {
-		composition = petri::choice;
+		composition = petri::CHOICE;
 	} else if (syntax.level == parse_cog::composition::CHOICE) {
-		composition = petri::choice;
+		composition = petri::CHOICE;
 		arbiter = true;
 	} else if (syntax.level == parse_cog::composition::PARALLEL) {
-		composition = petri::parallel;
+		composition = petri::PARALLEL;
 	}
 
-	hse::segment result(composition != petri::choice);
+	hse::segment result(composition != petri::CHOICE);
 	for (int i = 0; i < (int)syntax.branches.size(); i++) {
 		auto branch = import_segment(dst, syntax.branches[i].get(), default_id, tokens, auto_define);
 		result = compose(dst, composition, result, branch);
@@ -333,13 +333,13 @@ hse::segment import_segment(hse::graph &dst, const parse_cog::composition &synta
 	// any places before those transitions then we need to create
 	// them
 
-	if (result.nodes.source.size() > 1u and composition == hse::choice) {
+	if (result.nodes.source.size() > 1u and composition == petri::CHOICE) {
 		petri::iterator from = dst.create(hse::place());
 		dst.connect({{from}}, result.nodes.source);
 		result.nodes.source = petri::bound({{from}});
 	}
 
-	if (result.nodes.sink.size() > 1u and composition == hse::choice) {
+	if (result.nodes.sink.size() > 1u and composition == petri::CHOICE) {
 		petri::iterator to = dst.create(hse::place());
 		dst.connect(result.nodes.sink, {{to}});
 		result.nodes.sink = petri::bound({{to}});
@@ -385,7 +385,7 @@ hse::segment import_segment(hse::graph &dst, const parse_cog::composition &synta
 		}
 	}
 
-	if (result.loop and composition == hse::choice and not arbiter and not result.nodes.source.empty()) {
+	if (result.loop and composition == petri::CHOICE and not arbiter and not result.nodes.source.empty()) {
 		boolean::cover skipCond = ~result.cond;
 		if (not skipCond.is_null()) {
 			petri::iterator arrow = dst.create(hse::place());
@@ -442,11 +442,11 @@ hse::segment import_segment(hse::graph &dst, const parse_cog::control &syntax, i
 				error("", "if statements not supported in wire-level specifications", __FILE__, __LINE__);
 			}
 		}
-		result = compose(dst, petri::sequence, result, sub);
+		result = compose(dst, petri::SEQUENCE, result, sub);
 	}
 	if (syntax.action.valid) {
 		auto sub = import_segment(dst, syntax.action, default_id, tokens, auto_define);
-		result = compose(dst, petri::sequence, result, sub);
+		result = compose(dst, petri::SEQUENCE, result, sub);
 	}
 
 	if (syntax.kind == "while" and not result.nodes.source.empty()) {
