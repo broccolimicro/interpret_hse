@@ -4,7 +4,7 @@ A library for converting between various representations of Handshaking Expansio
 
 ## Overview
 
-The `libinterpret_hse` library provides parsers and interpreters for translating between different representations of asynchronous circuit specifications. It serves as a core component of the Loom compiler, enabling the transformation between:
+The `libinterpret_hse` library provides parsers and interpreters for translating between different representations of asynchronous circuit specifications. It serves as a core component of the Bok compiler, enabling the transformation between:
 
 - **ASTG** (Asynchronous Signal Transition Graph): Formal models representing signal transitions in asynchronous circuits
 - **DOT**: GraphViz format for visualizing circuit graphs
